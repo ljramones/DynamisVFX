@@ -2,6 +2,9 @@ package org.dynamisvfx.vulkan.parity;
 
 import org.dynamisvfx.api.BlendMode;
 import org.dynamisvfx.api.ParticleEmitterDescriptor;
+import org.dynamisvfx.vulkan.budget.VfxBudgetAllocation;
+import org.dynamisvfx.vulkan.budget.VfxBudgetAllocator;
+import org.dynamisvfx.vulkan.budget.VfxBudgetPolicy;
 import org.dynamisvfx.vulkan.hotreload.VfxReloadCategory;
 import org.dynamisvfx.vulkan.compute.VulkanVfxSortStage;
 import org.dynamisvfx.vulkan.descriptor.VulkanVfxDescriptorSetLayout;
@@ -10,6 +13,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @EnabledIfSystemProperty(named = "dle.vfx.parity.tests", matches = "true")
@@ -133,5 +137,36 @@ class VulkanVfxParityTest {
         } finally {
             fixture.close();
         }
+    }
+
+    @Test
+    void spawnRejectsWhenBudgetExhausted() {
+        VfxBudgetAllocator allocator = new VfxBudgetAllocator(100, VfxBudgetPolicy.REJECT);
+        VfxBudgetAllocation first = allocator.allocate(100, id -> {});
+        VfxBudgetAllocation second = allocator.allocate(1, id -> {});
+        assertTrue(first != null);
+        assertNull(second);
+    }
+
+    @Test
+    void spawnClampsToRemainingBudget() {
+        VfxBudgetAllocator allocator = new VfxBudgetAllocator(100, VfxBudgetPolicy.CLAMP);
+        VfxBudgetAllocation first = allocator.allocate(60, id -> {});
+        VfxBudgetAllocation second = allocator.allocate(60, id -> {});
+        assertTrue(first != null);
+        assertEquals(60, first.allocatedParticles());
+        assertTrue(second != null);
+        assertEquals(40, second.allocatedParticles());
+    }
+
+    @Test
+    void evictOldestMakesRoomForNew() {
+        VfxBudgetAllocator allocator = new VfxBudgetAllocator(100, VfxBudgetPolicy.EVICT_OLDEST);
+        final int[] evicted = new int[1];
+        VfxBudgetAllocation a = allocator.allocate(100, id -> evicted[0] = id);
+        VfxBudgetAllocation b = allocator.allocate(100, id -> evicted[0] = id);
+        assertTrue(a != null);
+        assertTrue(b != null);
+        assertEquals(a.allocationId(), evicted[0]);
     }
 }

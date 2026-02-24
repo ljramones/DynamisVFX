@@ -5,6 +5,7 @@ import org.dynamisvfx.api.ParticleEmitterDescriptor;
 import org.dynamisvfx.api.PhysicsHandoff;
 import org.dynamisvfx.api.VfxDrawContext;
 import org.dynamisvfx.api.VfxFrameContext;
+import org.dynamisvfx.api.VfxBudgetStats;
 import org.dynamisvfx.api.VfxHandle;
 import org.dynamisvfx.api.VfxService;
 import org.dynamisvfx.api.VfxStats;
@@ -33,7 +34,7 @@ public final class MockVfxService implements VfxService {
 
     private PhysicsHandoff physicsHandoff;
     private int simulationStep;
-    private VfxStats currentStats = new VfxStats(0, 0, 0, 0, 0);
+    private VfxStats currentStats = new VfxStats(0, 0, 0, 0, 0, new VfxBudgetStats(0, 0, 0, 0, 0, 0, 0));
 
     @Override
     public void simulate(List<VfxHandle> activeEffects, float deltaTime, VfxFrameContext ctx) {
@@ -45,7 +46,14 @@ public final class MockVfxService implements VfxService {
         int sleepingCount = activeCount == 0 ? 0 : simulationStep / 30;
         int culledCount = simulationStep * 2;
         long memoryBytes = (long) particleCount * 80L;
-        currentStats = new VfxStats(activeCount, particleCount, sleepingCount, culledCount, memoryBytes);
+        currentStats = new VfxStats(
+            activeCount,
+            particleCount,
+            sleepingCount,
+            culledCount,
+            memoryBytes,
+            new VfxBudgetStats(0, 0, 0, activeCount, 0, 0, 0)
+        );
 
         maybeEmitDeterministicDebris(activeEffects);
     }

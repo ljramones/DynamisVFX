@@ -8,7 +8,11 @@ import org.dynamisvfx.api.VfxDrawContext;
 import org.dynamisvfx.api.VfxFrameContext;
 import org.dynamisvfx.api.VfxHandle;
 import org.dynamisvfx.api.VfxService;
+import org.dynamisvfx.api.VfxBudgetStats;
 import org.dynamisvfx.api.VfxStats;
+import org.dynamisvfx.vulkan.budget.VfxBudgetAllocation;
+import org.dynamisvfx.vulkan.budget.VfxBudgetAllocator;
+import org.dynamisvfx.vulkan.budget.VfxBudgetPolicy;
 import org.dynamisvfx.vulkan.compute.VulkanVfxCullCompactStage;
 import org.dynamisvfx.vulkan.compute.VulkanVfxEmitStage;
 import org.dynamisvfx.vulkan.compute.VulkanVfxRetireStage;
@@ -48,6 +52,8 @@ public final class VulkanVfxService implements VfxService {
     private final VulkanVfxDebrisReadbackRing readbackRing;
     private final VulkanVfxHotReloader hotReloader;
     private final int framesInFlight;
+    private final VfxBudgetAllocator budgetAllocator;
+    private final Map<Integer, Integer> allocationToHandle = new HashMap<>();
 
     private final AtomicInteger nextHandleId = new AtomicInteger(1);
     private final Map<Integer, EffectState> effects = new HashMap<>();
@@ -72,6 +78,10 @@ public final class VulkanVfxService implements VfxService {
             : VulkanVfxDebrisReadbackRing.allocate(memoryOps, VulkanVfxDebrisReadbackBuffer.DEFAULT_MAX_CANDIDATES);
         this.framesInFlight = 3;
         this.hotReloader = VulkanVfxHotReloader.create(device, 1L, layout, framesInFlight);
+        this.budgetAllocator = new VfxBudgetAllocator(
+            VfxBudgetAllocator.DEFAULT_GLOBAL_BUDGET,
+            VfxBudgetPolicy.CLAMP
+        );
     }
 
     @Override
@@ -153,10 +163,27 @@ public final class VulkanVfxService implements VfxService {
     @Override
     public VfxHandle spawn(ParticleEmitterDescriptor descriptor, float[] transform) {
         Objects.requireNonNull(descriptor, "descriptor");
+        VfxBudgetAllocation allocation = budgetAllocator.allocate(
+            VfxBudgetAllocator.DEFAULT_GLOBAL_BUDGET / 16,
+            this::despawnByAllocationId
+        );
+        if (allocation == null) {
+            return null;
+        }
+
         int id = nextHandleId.getAndIncrement();
         int generation = generationById.getOrDefault(id, 0);
         VfxHandle handle = VfxHandle.create(id, generation, descriptor.id());
-        effects.put(id, new EffectState(handle, descriptor, normalizedTransform(transform), System.nanoTime()));
+        EffectState state = new EffectState(
+            handle,
+            descriptor,
+            normalizedTransform(transform),
+            System.nanoTime(),
+            allocation.allocationId(),
+            allocation.allocatedParticles()
+        );
+        effects.put(id, state);
+        allocationToHandle.put(allocation.allocationId(), id);
         return handle;
     }
 
@@ -169,6 +196,10 @@ public final class VulkanVfxService implements VfxService {
         generationById.put(handle.id(), handle.generation() + 1);
         if (state != null && state.resources != null) {
             state.resources.destroy(memoryOps);
+        }
+        if (state != null) {
+            budgetAllocator.release(state.allocationId);
+            allocationToHandle.remove(state.allocationId);
         }
     }
 
@@ -197,7 +228,17 @@ public final class VulkanVfxService implements VfxService {
             .filter(s -> s.resources != null)
             .mapToLong(s -> (long) s.resources.config().maxParticles() * 80L)
             .sum();
-        return new VfxStats(activeEffects, activeParticles, 0, 0, gpuBytes);
+        org.dynamisvfx.vulkan.budget.VfxBudgetStats internal = budgetAllocator.stats();
+        VfxBudgetStats budgetStats = new VfxBudgetStats(
+            internal.totalBudget(),
+            internal.usedBudget(),
+            internal.remainingBudget(),
+            internal.activeEffectCount(),
+            internal.rejectedThisFrame(),
+            internal.clampedThisFrame(),
+            internal.evictedThisFrame()
+        );
+        return new VfxStats(activeEffects, activeParticles, 0, 0, gpuBytes, budgetStats);
     }
 
     public void registerEffectResources(
@@ -288,6 +329,10 @@ public final class VulkanVfxService implements VfxService {
         return lastRespawnedHandle;
     }
 
+    public VfxBudgetAllocator budgetAllocator() {
+        return budgetAllocator;
+    }
+
     void processDebrisReadback(long frameIndex) {
         VulkanVfxDebrisReadbackBuffer readBuffer = readbackRing.readBuffer(frameIndex);
         List<VulkanVfxDebrisCandidate> candidates = readBuffer.readCandidates(memoryOps);
@@ -298,6 +343,17 @@ public final class VulkanVfxService implements VfxService {
             EffectState effect = effects.get(candidate.emitterId());
             float[] transform = effect == null ? DEFAULT_TRANSFORM : effect.transform;
             physicsHandoff.onDebrisSpawn(candidate.toSpawnEvent(transform));
+        }
+    }
+
+    private void despawnByAllocationId(int allocationId) {
+        Integer handleId = allocationToHandle.get(allocationId);
+        if (handleId == null) {
+            return;
+        }
+        EffectState state = effects.get(handleId);
+        if (state != null) {
+            despawn(state.handle);
         }
     }
 
@@ -329,6 +385,8 @@ public final class VulkanVfxService implements VfxService {
         private final VfxHandle handle;
         private ParticleEmitterDescriptor descriptor;
         private final long seed;
+        private final int allocationId;
+        private final int grantedParticles;
         private float[] transform;
 
         private VulkanVfxEffectResources resources;
@@ -336,11 +394,20 @@ public final class VulkanVfxService implements VfxService {
         private int aliveCount;
         private int lastDrawInstanceCount;
 
-        private EffectState(VfxHandle handle, ParticleEmitterDescriptor descriptor, float[] transform, long seed) {
+        private EffectState(
+            VfxHandle handle,
+            ParticleEmitterDescriptor descriptor,
+            float[] transform,
+            long seed,
+            int allocationId,
+            int grantedParticles
+        ) {
             this.handle = handle;
             this.descriptor = descriptor;
             this.transform = transform;
             this.seed = seed;
+            this.allocationId = allocationId;
+            this.grantedParticles = grantedParticles;
         }
     }
 }

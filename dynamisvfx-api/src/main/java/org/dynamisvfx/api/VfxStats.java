@@ -5,6 +5,7 @@ public record VfxStats(
     int activeParticleCount,
     int sleepingEmitterCount,
     int culledParticleCount,
-    long gpuMemoryBytes
+    long gpuMemoryBytes,
+    VfxBudgetStats budgetStats
 ) {
 }
