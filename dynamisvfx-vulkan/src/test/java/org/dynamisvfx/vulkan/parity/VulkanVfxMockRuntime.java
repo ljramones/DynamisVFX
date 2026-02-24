@@ -2,6 +2,7 @@ package org.dynamisvfx.vulkan.parity;
 
 import org.dynamisvfx.api.EmissionRateDescriptor;
 import org.dynamisvfx.api.ParticleEmitterDescriptor;
+import org.dynamisvfx.api.VfxHandle;
 import org.dynamisvfx.core.builder.EffectBuilder;
 import org.dynamisvfx.core.builder.EmissionRate;
 import org.dynamisvfx.core.builder.EmitterShape;
@@ -9,6 +10,7 @@ import org.dynamisvfx.core.builder.Force;
 import org.dynamisvfx.core.builder.ParticleInit;
 import org.dynamisvfx.core.builder.Renderer;
 import org.dynamisvfx.api.BlendMode;
+import org.dynamisvfx.vulkan.VulkanVfxService;
 import org.dynamisvfx.vulkan.compute.VulkanVfxEmitStage;
 import org.dynamisvfx.vulkan.compute.VulkanVfxCullCompactStage;
 import org.dynamisvfx.vulkan.compute.VulkanVfxRetireStage;
@@ -176,5 +178,67 @@ public final class VulkanVfxMockRuntime {
             )));
         }
         return eventsPerStep;
+    }
+
+    static ReloadFixture createReloadFixture(ParticleEmitterDescriptor descriptor) {
+        VulkanVfxDescriptorSetLayout layout = VulkanVfxDescriptorSetLayout.create(1L);
+        VulkanVfxService service = new VulkanVfxService(1L, null, layout);
+        VfxHandle handle = service.spawn(descriptor, identityMatrix());
+        return new ReloadFixture(service, handle, descriptor, layout);
+    }
+
+    static ParticleEmitterDescriptor withForceStrength(ParticleEmitterDescriptor base, float gravityStrength) {
+        return EffectBuilder.emitter(base.id())
+            .shape(EmitterShape.sphere(0.5f))
+            .rate(base.rate())
+            .init(base.init())
+            .force(Force.gravity(gravityStrength))
+            .force(Force.drag(0.25f))
+            .renderer(Renderer.billboard().blend(BlendMode.ALPHA).build())
+            .build();
+    }
+
+    static ParticleEmitterDescriptor withBurstCount(ParticleEmitterDescriptor base, int burstCount) {
+        return EffectBuilder.emitter(base.id())
+            .shape(EmitterShape.sphere(0.5f))
+            .rate(EmissionRate.burst(burstCount))
+            .init(base.init())
+            .force(Force.gravity(9.8f))
+            .force(Force.drag(0.25f))
+            .renderer(Renderer.billboard().blend(BlendMode.ALPHA).build())
+            .build();
+    }
+
+    private static float[] identityMatrix() {
+        float[] m = new float[16];
+        m[0] = 1f;
+        m[5] = 1f;
+        m[10] = 1f;
+        m[15] = 1f;
+        return m;
+    }
+
+    static final class ReloadFixture {
+        final VulkanVfxService service;
+        final VfxHandle handle;
+        final ParticleEmitterDescriptor descriptor;
+        final VulkanVfxDescriptorSetLayout layout;
+
+        ReloadFixture(
+            VulkanVfxService service,
+            VfxHandle handle,
+            ParticleEmitterDescriptor descriptor,
+            VulkanVfxDescriptorSetLayout layout
+        ) {
+            this.service = service;
+            this.handle = handle;
+            this.descriptor = descriptor;
+            this.layout = layout;
+        }
+
+        void close() {
+            service.destroy();
+            layout.destroy(1L);
+        }
     }
 }

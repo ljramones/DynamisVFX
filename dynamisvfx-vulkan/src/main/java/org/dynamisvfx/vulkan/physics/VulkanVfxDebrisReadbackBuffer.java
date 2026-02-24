@@ -78,8 +78,9 @@ public final class VulkanVfxDebrisReadbackBuffer {
     }
 
     public void destroy(VulkanMemoryOps memoryOps) {
-        Objects.requireNonNull(memoryOps, "memoryOps");
-        memoryOps.getClass();
+        if (memoryOps != null) {
+            memoryOps.getClass();
+        }
         hostMirror.putInt(0, 0);
     }
 

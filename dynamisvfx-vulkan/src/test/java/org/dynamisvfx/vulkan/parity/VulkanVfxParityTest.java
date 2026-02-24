@@ -2,6 +2,7 @@ package org.dynamisvfx.vulkan.parity;
 
 import org.dynamisvfx.api.BlendMode;
 import org.dynamisvfx.api.ParticleEmitterDescriptor;
+import org.dynamisvfx.vulkan.hotreload.VfxReloadCategory;
 import org.dynamisvfx.vulkan.compute.VulkanVfxSortStage;
 import org.dynamisvfx.vulkan.descriptor.VulkanVfxDescriptorSetLayout;
 import org.junit.jupiter.api.Test;
@@ -99,5 +100,38 @@ class VulkanVfxParityTest {
         assertEquals(0, events[1], "no debris events should be readable on frame 2");
         assertTrue(events[2] > 0, "debris events should appear on frame 3+");
         assertTrue(events[3] > 0, "debris events should continue on subsequent frames");
+    }
+
+    @Test
+    void forcesOnlyReloadDoesNotRespawn() {
+        ParticleEmitterDescriptor base = VulkanVfxMockRuntime.burstDescriptor(100, 1.0f, 2.0f);
+        VulkanVfxMockRuntime.ReloadFixture fixture = VulkanVfxMockRuntime.createReloadFixture(base);
+        try {
+            ParticleEmitterDescriptor updated = VulkanVfxMockRuntime.withForceStrength(base, 14.0f);
+            VfxReloadCategory category = fixture.service.reloadEffect(fixture.handle, updated);
+
+            assertEquals(VfxReloadCategory.FORCES_ONLY, category);
+            assertTrue(fixture.service.isHandleAlive(fixture.handle));
+            assertEquals(null, fixture.service.lastRespawnedHandle());
+        } finally {
+            fixture.close();
+        }
+    }
+
+    @Test
+    void fullRespawnReloadRestartsEffect() {
+        ParticleEmitterDescriptor base = VulkanVfxMockRuntime.burstDescriptor(100, 1.0f, 2.0f);
+        VulkanVfxMockRuntime.ReloadFixture fixture = VulkanVfxMockRuntime.createReloadFixture(base);
+        try {
+            ParticleEmitterDescriptor updated = VulkanVfxMockRuntime.withBurstCount(base, 500);
+            VfxReloadCategory category = fixture.service.reloadEffect(fixture.handle, updated);
+
+            assertEquals(VfxReloadCategory.FULL_RESPAWN, category);
+            assertTrue(!fixture.service.isHandleAlive(fixture.handle));
+            assertTrue(fixture.service.lastRespawnedHandle() != null);
+            assertTrue(fixture.service.isHandleAlive(fixture.service.lastRespawnedHandle()));
+        } finally {
+            fixture.close();
+        }
     }
 }

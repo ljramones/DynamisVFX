@@ -12,7 +12,7 @@ import java.util.Objects;
 
 public final class VulkanVfxEffectResources {
     private final VfxBufferConfig config;
-    private final ParticleEmitterDescriptor descriptor;
+    private volatile ParticleEmitterDescriptor descriptor;
     private final VulkanVfxSoaBuffers soaBuffers;
     private final VulkanVfxControlBuffers controlBuffers;
     private final VulkanVfxRenderBuffers renderBuffers;
@@ -99,6 +99,10 @@ public final class VulkanVfxEffectResources {
 
     public ParticleEmitterDescriptor descriptor() {
         return descriptor;
+    }
+
+    public void updateDescriptor(ParticleEmitterDescriptor updated) {
+        this.descriptor = Objects.requireNonNull(updated, "updated");
     }
 
     public VulkanVfxControlBuffers controlBuffers() {

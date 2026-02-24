@@ -41,7 +41,6 @@ public final class VulkanVfxDebrisReadbackRing {
     }
 
     public void destroy(VulkanMemoryOps memoryOps) {
-        Objects.requireNonNull(memoryOps, "memoryOps");
         for (VulkanVfxDebrisReadbackBuffer buffer : ring) {
             buffer.destroy(memoryOps);
         }

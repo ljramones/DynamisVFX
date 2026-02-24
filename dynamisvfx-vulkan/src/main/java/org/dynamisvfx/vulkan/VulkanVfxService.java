@@ -18,6 +18,9 @@ import org.dynamisvfx.vulkan.compute.VulkanVfxSpawnScheduler;
 import org.dynamisvfx.vulkan.descriptor.VulkanVfxDescriptorSetLayout;
 import org.dynamisvfx.vulkan.descriptor.VulkanVfxDescriptorSets;
 import org.dynamisvfx.vulkan.indirect.VulkanVfxIndirectWriter;
+import org.dynamisvfx.vulkan.hotreload.VfxReloadCategory;
+import org.dynamisvfx.vulkan.hotreload.VfxDescriptorDiff;
+import org.dynamisvfx.vulkan.hotreload.VulkanVfxHotReloader;
 import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisCandidate;
 import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisCandidateWriter;
 import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisReadbackBuffer;
@@ -43,14 +46,18 @@ public final class VulkanVfxService implements VfxService {
     private final VulkanVfxSpawnScheduler spawnScheduler;
     private final VulkanVfxDebrisCandidateWriter debrisCandidateWriter;
     private final VulkanVfxDebrisReadbackRing readbackRing;
+    private final VulkanVfxHotReloader hotReloader;
+    private final int framesInFlight;
 
     private final AtomicInteger nextHandleId = new AtomicInteger(1);
     private final Map<Integer, EffectState> effects = new HashMap<>();
     private final Map<Integer, Integer> generationById = new HashMap<>();
 
     private PhysicsHandoff physicsHandoff;
+    private VfxHandle lastRespawnedHandle;
 
     public VulkanVfxService(long device, VulkanMemoryOps memoryOps, VulkanVfxDescriptorSetLayout layout) {
+        Objects.requireNonNull(layout, "layout");
         this.device = device;
         this.memoryOps = memoryOps;
         this.retireStage = VulkanVfxRetireStage.create(device, layout);
@@ -60,10 +67,11 @@ public final class VulkanVfxService implements VfxService {
         this.cullCompactStage = VulkanVfxCullCompactStage.create(device, layout);
         this.spawnScheduler = new VulkanVfxSpawnScheduler();
         this.debrisCandidateWriter = VulkanVfxDebrisCandidateWriter.create(device, layout);
-        this.readbackRing = VulkanVfxDebrisReadbackRing.allocate(
-            memoryOps,
-            VulkanVfxDebrisReadbackBuffer.DEFAULT_MAX_CANDIDATES
-        );
+        this.readbackRing = memoryOps == null
+            ? VulkanVfxDebrisReadbackRing.allocateForTest(VulkanVfxDebrisReadbackBuffer.DEFAULT_MAX_CANDIDATES)
+            : VulkanVfxDebrisReadbackRing.allocate(memoryOps, VulkanVfxDebrisReadbackBuffer.DEFAULT_MAX_CANDIDATES);
+        this.framesInFlight = 3;
+        this.hotReloader = VulkanVfxHotReloader.create(device, 1L, layout, framesInFlight);
     }
 
     @Override
@@ -97,7 +105,9 @@ public final class VulkanVfxService implements VfxService {
             emitStage.dispatch(commandBuffer, resources, sets, set0, frameIndex, spawnCount, state.seed, handle.id());
             VulkanVfxEmitStage.insertPostEmitBarrier(commandBuffer);
 
-            simulateStage.dispatch(commandBuffer, resources, sets, set0, frameIndex, state.descriptor.forces(), memoryOps);
+            if (memoryOps != null) {
+                simulateStage.dispatch(commandBuffer, resources, sets, set0, frameIndex, state.descriptor.forces(), memoryOps);
+            }
             VulkanVfxSimulateStage.insertPostSimulateBarrier(commandBuffer);
 
             boolean needsSort = resources.config().needsSort();
@@ -117,6 +127,7 @@ public final class VulkanVfxService implements VfxService {
             cullCompactStage.dispatch(commandBuffer, resources, sets, set0, frameIndex, needsSort, frustum);
             VulkanVfxCullCompactStage.insertPostCullBarrier(commandBuffer);
             debrisCandidateWriter.dispatch(commandBuffer, resources, sets, readbackRing.writeBuffer(frameIndexLong), set0, frameIndex, 0.8f, 5.0f);
+            hotReloader.tick(resources, frameIndexLong);
 
             state.aliveCount = Math.min(resources.config().maxParticles(), Math.max(0, state.aliveCount + spawnCount));
             state.lastDrawInstanceCount = cullCompactStage.lastInstanceCount();
@@ -223,11 +234,58 @@ public final class VulkanVfxService implements VfxService {
         cullCompactStage.destroy(device);
         debrisCandidateWriter.destroy(device);
         readbackRing.destroy(memoryOps);
+        hotReloader.destroy();
         physicsHandoff = null;
     }
 
     public PhysicsHandoff physicsHandoff() {
         return physicsHandoff;
+    }
+
+    public VfxReloadCategory reloadEffect(VfxHandle handle, ParticleEmitterDescriptor updated) {
+        if (handle == null || updated == null) {
+            return VfxReloadCategory.FORCES_ONLY;
+        }
+        EffectState state = effects.get(handle.id());
+        if (state == null) {
+            return VfxReloadCategory.FORCES_ONLY;
+        }
+
+        VfxReloadCategory category = VfxDescriptorDiff.classify(state.descriptor, updated);
+        if (state.resources != null && state.descriptorSets != null && memoryOps != null) {
+            category = hotReloader.reload(
+                handle,
+                updated,
+                state.resources,
+                state.descriptorSets,
+                simulateStage,
+                memoryOps,
+                1L,
+                0L
+            );
+        }
+
+        if (category == VfxReloadCategory.FULL_RESPAWN) {
+            float[] transform = state.transform.clone();
+            despawn(handle);
+            VfxHandle respawned = spawn(updated, transform);
+            this.lastRespawnedHandle = respawned;
+        } else {
+            state.descriptor = updated;
+            if (state.resources != null) {
+                state.resources.updateDescriptor(updated);
+            }
+        }
+
+        return category;
+    }
+
+    public boolean isHandleAlive(VfxHandle handle) {
+        return handle != null && effects.containsKey(handle.id());
+    }
+
+    public VfxHandle lastRespawnedHandle() {
+        return lastRespawnedHandle;
     }
 
     void processDebrisReadback(long frameIndex) {
@@ -269,7 +327,7 @@ public final class VulkanVfxService implements VfxService {
 
     private static final class EffectState {
         private final VfxHandle handle;
-        private final ParticleEmitterDescriptor descriptor;
+        private ParticleEmitterDescriptor descriptor;
         private final long seed;
         private float[] transform;
 
