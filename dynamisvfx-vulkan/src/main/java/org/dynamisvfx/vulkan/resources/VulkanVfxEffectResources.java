@@ -12,6 +12,7 @@ import java.util.Objects;
 
 public final class VulkanVfxEffectResources {
     private final VfxBufferConfig config;
+    private final ParticleEmitterDescriptor descriptor;
     private final VulkanVfxSoaBuffers soaBuffers;
     private final VulkanVfxControlBuffers controlBuffers;
     private final VulkanVfxRenderBuffers renderBuffers;
@@ -22,12 +23,14 @@ public final class VulkanVfxEffectResources {
 
     private VulkanVfxEffectResources(
         VfxBufferConfig config,
+        ParticleEmitterDescriptor descriptor,
         VulkanVfxSoaBuffers soaBuffers,
         VulkanVfxControlBuffers controlBuffers,
         VulkanVfxRenderBuffers renderBuffers,
         VfxHandle handle
     ) {
         this.config = config;
+        this.descriptor = descriptor;
         this.soaBuffers = soaBuffers;
         this.controlBuffers = controlBuffers;
         this.renderBuffers = renderBuffers;
@@ -51,7 +54,7 @@ public final class VulkanVfxEffectResources {
         VulkanVfxControlBuffers control = VulkanVfxControlBuffers.allocate(config, memoryOps);
         VulkanVfxRenderBuffers render = VulkanVfxRenderBuffers.allocate(config, memoryOps, indirectBuffer);
 
-        return new VulkanVfxEffectResources(config, soa, control, render, handle);
+        return new VulkanVfxEffectResources(config, descriptor, soa, control, render, handle);
     }
 
     public void destroy(VulkanMemoryOps memoryOps) {
@@ -92,6 +95,10 @@ public final class VulkanVfxEffectResources {
 
     public VulkanVfxSoaBuffers soaBuffers() {
         return soaBuffers;
+    }
+
+    public ParticleEmitterDescriptor descriptor() {
+        return descriptor;
     }
 
     public VulkanVfxControlBuffers controlBuffers() {
