@@ -147,3 +147,90 @@
 | fastnoiselitenouveau | 1.1.1 | Noise — turbulence, curl, 4D FBm, vector fields, wind |
 | animis-runtime | 1.0.0 | (optional) Spline/skeletal emitter paths |
 | collision_detection | 1.1.0 | (optional) Particle/debris physics handoff |
+
+## Animis Integration (Wiring Tasks)
+
+### Spline Emitter (Animis → VFX)
+- Add SPLINE as an EmitterShapeType in dynamisvfx-api
+- EmitterShapeDescriptor gets a splineId field (references an Animis spline asset by id)
+- VulkanVfxEmitStage samples position along the spline at emit time using Animis curve
+  evaluation (Bezier/Catmull-Rom) — position is a function of (particleIndex / spawnCount)
+- Use case: vehicle exhaust, missile trails, magic circle summoning rings, guided paths
+- Dependency: animis-runtime:1.0.0 (already declared optional in dynamisvfx-api pom)
+
+### Effect Chaining / Particle Death Events (Animis event system pattern)
+- Add ParticleDeathEvent to dynamisvfx-api — fired when a particle's age >= 1.0
+- Add EffectChainDescriptor to dynamisvfx-api:
+    childEffectId: String          — descriptor id to spawn
+    inheritVelocity: boolean       — child inherits parent particle velocity
+    inheritColor: boolean          — child inherits parent particle color
+    spawnProbability: float        — 0.0-1.0, fraction of dying particles that spawn child
+- GPU side: Stage 1 RETIRE shader writes death candidates to a DeathEventBuffer
+  (same ring buffer pattern as debris readback)
+- CPU side: VulkanVfxService reads DeathEventBuffer 2 frames later, calls
+  spawn(childDescriptor, deathTransform) for each candidate
+- Use case: sparks spawning smoke, explosion spawning debris + fire, impact spawning decals
+- Pattern: identical to PhysicsHandoff readback ring — reuse the infrastructure
+
+## New Features
+
+### GPU Simulation State Persistence
+- Serialize live particle SoA buffers (Position/Velocity/Color/Attrib/Meta) to disk
+- VulkanVfxEffectResources.snapshot(): reads back all 5 SoA buffers via staging,
+  writes to a binary .vfxstate file using EffectBinarySerializer format
+- VulkanVfxEffectResources.restore(): uploads .vfxstate to GPU SoA buffers at spawn time,
+  skipping the normal FreeList initialization
+- Use case: persistent world effects that survive scene reloads, save/load of
+  simulation state for deterministic replay, editor preview resume
+- Key challenge: FreeList must be reconstructed from the restored age values —
+  any slot with age >= 1.0 is pushed to the free list during restore
+
+### Audio Reactivity
+- Add AUDIO_BAND as a ForceType in dynamisvfx-api
+- NoiseForceConfig extended with: bandIndex (0-7), sensitivity (float), smoothing (float)
+- CPU side: AudioReactivityBridge interface in dynamisvfx-api
+    float getBandAmplitude(int bandIndex)  — called each frame by VulkanVfxService
+- Engine wires at startup: vfxService.setAudioBridge(fftProvider)
+- VFX uses band amplitude to modulate: emission rate, force strength, particle size,
+  color intensity — any float field in the descriptor marked @AudioModulatable
+- GPU side: AudioParamsBuffer (vec4[2] = 8 floats, one per band) uploaded each frame
+  to ForceFieldBuffer header, sampled in SIMULATE shader
+- Use case: music visualizers, combat audio-driven impact effects, ambient reactive FX
+
+### Texture Flipbook Motion Vector Blending (Sub-UV Interpolation)
+- Current BILLBOARD fragment shader hard-cuts between atlas frames
+- Add motionVectors: boolean to RendererDescriptor
+- When true: sample two adjacent atlas frames and blend using per-texel motion vectors
+  stored in a separate motion vector atlas (same dimensions, rg16f format)
+- Blend factor = fract(age * frameRate * frameCount) — smooth 0→1 between frames
+- Fragment shader samples currentFrame and nextFrame, blends with motion-compensated
+  UV offset: uv_blended = mix(uv0 + mv*t, uv1 - mv*(1-t), t)
+- Use case: high-quality fire, smoke, explosions where hard frame cuts are visible
+- Asset requirement: motion vector atlas must be pre-baked (offline tool, not runtime)
+
+### Budget-Aware LOD
+- Current LodPolicy in dynamisvfx-core uses camera distance only
+- Extend LodPolicy to accept VfxBudgetStats as a second input
+- Add budgetPressureThreshold: float to LodPolicyConfig (default 0.8 = 80% budget used)
+- When usedBudget / totalBudget > threshold: step down one LOD tier regardless of distance
+- When usedBudget / totalBudget > 0.95: force minimum LOD tier on all non-hero effects
+- Hero effects marked via VfxHandle.priority (HIGH/NORMAL/LOW) — LOW effects are
+  first to be downgraded, HIGH effects are immune to budget-pressure LOD
+- Wire into VulkanVfxService.simulate(): compute active LOD tier from both distance
+  and budget pressure, pass to VulkanVfxSpawnScheduler to reduce emission rate
+
+### GPU Particle-to-Light Cluster Integration
+- Particles with RendererType.BILLBOARD and BlendMode.ADDITIVE can act as point lights
+- Add lightEmitter: boolean and lightRadius: float to RendererDescriptor
+- New compute stage (Stage 6, optional): LIGHT_EXTRACT
+    Reads alive particles flagged as light emitters from DrawIndexBuffer
+    Writes PackedPointLight entries (pos, color, radius, intensity) to a
+    VfxLightContributionBuffer
+    Capped at maxLightParticles (default 256) — top N by intensity
+- DynamicLightEngine integration point: VulkanVfxIntegration exposes
+    getLightContributionBuffer(): DeviceBuffer
+  Engine's light clustering pass reads this buffer alongside static/dynamic lights
+- Use case: ember showers, muzzle flash, magical projectiles, explosions — all
+  contributing real dynamic lighting to the scene without manual light placement
+- Dependency: DynamicLightEngine light cluster buffer layout (defined in Step 18
+  integration — VulkanVfxIntegration already has the DLE handle)
