@@ -6,18 +6,28 @@
 
     <parent>
         <groupId>org.dynamisvfx</groupId>
-        <artifactId>dynamisvfx</artifactId>
+        <artifactId>dynamisvfx-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>dynamisvfx-app</artifactId>
-    <name>DynamisVFX App</name>
+    <artifactId>dynamisvfx-test</artifactId>
+    <name>DynamisVFX Test</name>
 
     <dependencies>
         <dependency>
             <groupId>org.dynamisvfx</groupId>
+            <artifactId>dynamisvfx-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.dynamisvfx</groupId>
             <artifactId>dynamisvfx-core</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.dynamisgpu</groupId>
+            <artifactId>dynamis-gpu-test</artifactId>
+            <version>1.0.1</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
