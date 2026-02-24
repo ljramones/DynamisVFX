@@ -241,4 +241,66 @@ public final class VulkanVfxMockRuntime {
             layout.destroy(1L);
         }
     }
+
+    static float runPositionSignature(
+        ParticleEmitterDescriptor descriptor,
+        int steps,
+        float deltaTime,
+        long seed
+    ) {
+        Random random = new Random(seed);
+        int maxParticles = 512;
+        List<ParticleState> particles = new ArrayList<>();
+        VulkanVfxSpawnScheduler scheduler = new VulkanVfxSpawnScheduler();
+        boolean hasCurlNoise = descriptor.forces() != null
+            && descriptor.forces().stream().anyMatch(f -> f != null && f.type() == org.dynamisvfx.api.ForceType.CURL_NOISE);
+
+        float signature = 0f;
+        for (int step = 0; step < steps; step++) {
+            particles.removeIf(p -> p.age >= 1.0f);
+
+            int spawnCount = scheduler.computeSpawnCount(descriptor.rate(), deltaTime, maxParticles - particles.size());
+            for (int i = 0; i < spawnCount; i++) {
+                float life = sampleLifetime(descriptor, random);
+                particles.add(new ParticleState(0f, 0f, 0f, 0.1f, 0.2f, 0.3f, life, 0f));
+            }
+
+            for (ParticleState p : particles) {
+                if (hasCurlNoise) {
+                    float jitter = (float) Math.sin((step + 1) * 0.17f + p.age * 3.1f) * 0.05f;
+                    p.vx += jitter;
+                    p.vy += jitter * 0.5f;
+                    p.vz -= jitter * 0.25f;
+                }
+                p.x += p.vx * deltaTime;
+                p.y += p.vy * deltaTime;
+                p.z += p.vz * deltaTime;
+                p.age += deltaTime / Math.max(p.lifetime, 0.001f);
+                signature += Math.abs(p.x) + Math.abs(p.y) + Math.abs(p.z);
+            }
+        }
+        return signature;
+    }
+
+    private static final class ParticleState {
+        float x;
+        float y;
+        float z;
+        float vx;
+        float vy;
+        float vz;
+        float lifetime;
+        float age;
+
+        ParticleState(float x, float y, float z, float vx, float vy, float vz, float lifetime, float age) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.vx = vx;
+            this.vy = vy;
+            this.vz = vz;
+            this.lifetime = lifetime;
+            this.age = age;
+        }
+    }
 }

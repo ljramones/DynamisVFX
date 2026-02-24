@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public final class VulkanVfxDescriptorSets {
     private static final AtomicLong HANDLE_IDS = new AtomicLong(3000L);
+    private static final long DUMMY_NOISE_IMAGE_VIEW = 9001L;
 
     private final long[] set1PerFrame;
     private final long[] set2PerFrame;
@@ -65,6 +66,14 @@ public final class VulkanVfxDescriptorSets {
         resources.soaBuffers();
         resources.controlBuffers();
         resources.renderBuffers();
+        if (resources.noiseField() != null) {
+            resources.noiseField().imageView();
+        } else {
+            long ignoredDummy = DUMMY_NOISE_IMAGE_VIEW;
+            if (ignoredDummy == 0L) {
+                throw new IllegalStateException("Dummy noise image view not initialized");
+            }
+        }
         written = true;
     }
 

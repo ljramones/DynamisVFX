@@ -2,6 +2,12 @@ package org.dynamisvfx.vulkan.parity;
 
 import org.dynamisvfx.api.BlendMode;
 import org.dynamisvfx.api.ParticleEmitterDescriptor;
+import org.dynamisvfx.core.builder.EffectBuilder;
+import org.dynamisvfx.core.builder.EmissionRate;
+import org.dynamisvfx.core.builder.EmitterShape;
+import org.dynamisvfx.core.builder.Force;
+import org.dynamisvfx.core.builder.ParticleInit;
+import org.dynamisvfx.core.builder.Renderer;
 import org.dynamisvfx.vulkan.budget.VfxBudgetAllocation;
 import org.dynamisvfx.vulkan.budget.VfxBudgetAllocator;
 import org.dynamisvfx.vulkan.budget.VfxBudgetPolicy;
@@ -168,5 +174,37 @@ class VulkanVfxParityTest {
         assertTrue(a != null);
         assertTrue(b != null);
         assertEquals(a.allocationId(), evicted[0]);
+    }
+
+    @Test
+    void curlNoiseForceAffectsParticleVelocity() {
+        ParticleEmitterDescriptor withCurl = EffectBuilder.emitter("curl")
+            .shape(EmitterShape.sphere(0.5f))
+            .rate(EmissionRate.continuous(120f))
+            .init(ParticleInit.builder()
+                .lifetime(1.0f, 1.0f)
+                .velocityRange(0.2f, 0.4f)
+                .sizeRange(0.1f, 0.1f)
+                .build())
+            .force(Force.gravity(9.8f))
+            .force(Force.curlNoise(0.02f, 2.0f))
+            .renderer(Renderer.billboard().blend(BlendMode.ALPHA).build())
+            .build();
+
+        ParticleEmitterDescriptor withoutCurl = EffectBuilder.emitter("nocurl")
+            .shape(EmitterShape.sphere(0.5f))
+            .rate(EmissionRate.continuous(120f))
+            .init(ParticleInit.builder()
+                .lifetime(1.0f, 1.0f)
+                .velocityRange(0.2f, 0.4f)
+                .sizeRange(0.1f, 0.1f)
+                .build())
+            .force(Force.gravity(9.8f))
+            .renderer(Renderer.billboard().blend(BlendMode.ALPHA).build())
+            .build();
+
+        float withNoise = VulkanVfxMockRuntime.runPositionSignature(withCurl, 10, 1f / 60f, 777L);
+        float withoutNoise = VulkanVfxMockRuntime.runPositionSignature(withoutCurl, 10, 1f / 60f, 777L);
+        assertTrue(Math.abs(withNoise - withoutNoise) > 1e-4f);
     }
 }

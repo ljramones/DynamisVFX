@@ -2,6 +2,8 @@ package org.dynamisvfx.vulkan.compute;
 
 import org.dynamisgpu.vulkan.memory.VulkanMemoryOps;
 import org.dynamisvfx.api.ForceDescriptor;
+import org.dynamisvfx.api.ForceType;
+import org.dynamisvfx.api.NoiseForceConfig;
 import org.dynamisvfx.vulkan.descriptor.VulkanVfxDescriptorSetLayout;
 import org.dynamisvfx.vulkan.descriptor.VulkanVfxDescriptorSets;
 import org.dynamisvfx.vulkan.force.PackedForceBuffer;
@@ -28,6 +30,8 @@ public final class VulkanVfxSimulateStage {
     private long lastBoundSet0;
     private long lastBoundSet1;
     private long lastBoundSet2;
+    private float lastNoiseWorldScale;
+    private float lastNoiseStrength;
 
     private VulkanVfxSimulateStage(VulkanVfxComputePipelineUtil.VulkanComputePipelineHandles pipeline) {
         this.pipeline = pipeline;
@@ -77,16 +81,21 @@ public final class VulkanVfxSimulateStage {
 
         int maxParticles = resources.config().maxParticles();
         int groups = (maxParticles + LOCAL_SIZE_X - 1) / LOCAL_SIZE_X;
+        NoiseForceConfig noiseCfg = findNoiseConfig(forces);
+        float noiseWorldScale = resources.noiseFieldConfig() == null ? 100.0f : resources.noiseFieldConfig().worldScale();
+        float noiseStrength = noiseCfg == null ? 0.0f : noiseCfg.amplitude();
 
         // Placeholder for real Vulkan calls:
         // vkCmdBindPipeline(COMPUTE)
         // vkCmdBindDescriptorSets(set0, set1, set2)
-        // vkCmdPushConstants(maxParticles, noiseScale, noiseStrength)
+        // vkCmdPushConstants(maxParticles, noiseWorldScale, noiseStrength)
         // vkCmdDispatch(groups, 1, 1)
         this.lastDispatchGroupCount = groups;
         this.lastBoundSet0 = set0;
         this.lastBoundSet1 = descriptorSets.set1(frameIndex);
         this.lastBoundSet2 = descriptorSets.set2(frameIndex);
+        this.lastNoiseWorldScale = noiseWorldScale;
+        this.lastNoiseStrength = noiseStrength;
     }
 
     public void uploadForceBuffer(
@@ -163,5 +172,25 @@ public final class VulkanVfxSimulateStage {
 
     public long lastBoundSet2() {
         return lastBoundSet2;
+    }
+
+    public float lastNoiseWorldScale() {
+        return lastNoiseWorldScale;
+    }
+
+    public float lastNoiseStrength() {
+        return lastNoiseStrength;
+    }
+
+    private static NoiseForceConfig findNoiseConfig(List<ForceDescriptor> forces) {
+        if (forces == null) {
+            return null;
+        }
+        for (ForceDescriptor force : forces) {
+            if (force != null && force.type() == ForceType.CURL_NOISE) {
+                return force.noiseConfig();
+            }
+        }
+        return null;
     }
 }

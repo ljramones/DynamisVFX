@@ -3,8 +3,14 @@ package org.dynamisvfx.vulkan.resources;
 import org.dynamisgpu.api.error.GpuException;
 import org.dynamisgpu.api.gpu.IndirectCommandBuffer;
 import org.dynamisgpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisvfx.api.ForceDescriptor;
+import org.dynamisvfx.api.ForceType;
+import org.dynamisvfx.api.NoiseForceConfig;
 import org.dynamisvfx.api.ParticleEmitterDescriptor;
 import org.dynamisvfx.api.VfxHandle;
+import org.dynamisvfx.vulkan.noise.VulkanVfxNoiseField3D;
+import org.dynamisvfx.vulkan.noise.VulkanVfxNoiseFieldConfig;
+import org.dynamisvfx.vulkan.noise.VulkanVfxNoiseFieldUploader;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -17,6 +23,8 @@ public final class VulkanVfxEffectResources {
     private final VulkanVfxControlBuffers controlBuffers;
     private final VulkanVfxRenderBuffers renderBuffers;
     private final VfxHandle handle;
+    private VulkanVfxNoiseField3D noiseField;
+    private VulkanVfxNoiseFieldConfig noiseFieldConfig;
 
     private ByteBuffer freeListInitData;
     private ByteBuffer aliveCountInitData;
@@ -54,11 +62,21 @@ public final class VulkanVfxEffectResources {
         VulkanVfxControlBuffers control = VulkanVfxControlBuffers.allocate(config, memoryOps);
         VulkanVfxRenderBuffers render = VulkanVfxRenderBuffers.allocate(config, memoryOps, indirectBuffer);
 
-        return new VulkanVfxEffectResources(config, descriptor, soa, control, render, handle);
+        VulkanVfxEffectResources resources = new VulkanVfxEffectResources(config, descriptor, soa, control, render, handle);
+        NoiseForceConfig noiseConfig = findCurlNoiseConfig(descriptor);
+        if (noiseConfig != null) {
+            resources.noiseFieldConfig = VulkanVfxNoiseFieldConfig.from(noiseConfig);
+            resources.noiseField = VulkanVfxNoiseField3D.allocate(1L, memoryOps, resources.noiseFieldConfig);
+        }
+        return resources;
     }
 
     public void destroy(VulkanMemoryOps memoryOps) {
         Objects.requireNonNull(memoryOps, "memoryOps");
+        if (noiseField != null) {
+            noiseField.destroy(1L, memoryOps);
+            noiseField = null;
+        }
         renderBuffers.destroy(memoryOps);
         controlBuffers.destroy(memoryOps);
         soaBuffers.destroy(memoryOps);
@@ -87,6 +105,10 @@ public final class VulkanVfxEffectResources {
         if (ignored == Long.MIN_VALUE) {
             throw new IllegalArgumentException("Invalid command buffer");
         }
+
+        if (noiseField != null && noiseFieldConfig != null) {
+            VulkanVfxNoiseFieldUploader.bakeAndUpload(commandBuffer, noiseField, noiseFieldConfig, memoryOps);
+        }
     }
 
     public VfxBufferConfig config() {
@@ -103,6 +125,14 @@ public final class VulkanVfxEffectResources {
 
     public void updateDescriptor(ParticleEmitterDescriptor updated) {
         this.descriptor = Objects.requireNonNull(updated, "updated");
+    }
+
+    public VulkanVfxNoiseField3D noiseField() {
+        return noiseField;
+    }
+
+    public VulkanVfxNoiseFieldConfig noiseFieldConfig() {
+        return noiseFieldConfig;
     }
 
     public VulkanVfxControlBuffers controlBuffers() {
@@ -123,5 +153,17 @@ public final class VulkanVfxEffectResources {
 
     public ByteBuffer aliveCountInitData() {
         return aliveCountInitData == null ? null : aliveCountInitData.asReadOnlyBuffer();
+    }
+
+    private static NoiseForceConfig findCurlNoiseConfig(ParticleEmitterDescriptor descriptor) {
+        if (descriptor.forces() == null) {
+            return null;
+        }
+        for (ForceDescriptor force : descriptor.forces()) {
+            if (force != null && force.type() == ForceType.CURL_NOISE) {
+                return force.noiseConfig();
+            }
+        }
+        return null;
     }
 }

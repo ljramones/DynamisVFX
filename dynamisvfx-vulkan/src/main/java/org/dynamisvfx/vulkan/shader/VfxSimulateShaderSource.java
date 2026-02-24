@@ -26,6 +26,8 @@ public final class VfxSimulateShaderSource {
             ForceEntry forces[];
         } forceBuffer;
 
+        layout(set=2, binding=4) uniform sampler3D noiseField3D;
+
         layout(std140, set=0, binding=0) uniform FrameUniforms {
             mat4 view;
             mat4 projection;
@@ -39,7 +41,7 @@ public final class VfxSimulateShaderSource {
 
         layout(push_constant) uniform PushConstants {
             uint maxParticles;
-            float noiseScale;
+            float noiseWorldScale;
             float noiseStrength;
         } push;
 
@@ -77,6 +79,13 @@ public final class VfxSimulateShaderSource {
             vec3 acceleration = vec3(0.0);
             for (uint i = 0u; i < forceBuffer.forceCount; i++) {
                 acceleration += evaluateForce(forceBuffer.forces[i], pos, vel, mass);
+            }
+
+            if (push.noiseStrength > 0.0) {
+                vec3 noiseUV = (pos / max(push.noiseWorldScale, 0.0001)) * 0.5 + 0.5;
+                noiseUV = clamp(noiseUV, 0.0, 1.0);
+                vec3 curlVel = texture(noiseField3D, noiseUV).rgb;
+                vel += curlVel * push.noiseStrength * frameUniforms.deltaTime;
             }
 
             // Integrate velocity and position (semi-implicit Euler)
