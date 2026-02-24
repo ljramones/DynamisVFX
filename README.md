@@ -1,64 +1,102 @@
 # DynamisVFX
 
-DynamisVFX is a multi-module Java library for real-time VFX focused on GPU particle simulation, emitter pipelines, and Vulkan-backed rendering integration.
+DynamisVFX is a multi-module Java VFX library focused on GPU-resident particle simulation, Vulkan execution, deterministic validation, and engine integration.
 
-## Vision
+## Current Status
 
-Build a high-performance, data-driven VFX stack that supports large-scale particle effects, deterministic simulation workflows, and modular renderer backends.
+DynamisVFX is implemented and integrated.
+
+- `dynamisvfx-api` complete: descriptor contracts, frame/draw contexts, handle lifecycle, physics handoff surface.
+- `dynamisvfx-core` complete: fluent builders, JSON/binary serialization, validation, LOD policy, noise baking utilities.
+- `dynamisvfx-test` complete: mock VFX service, deterministic simulation harness, assertion utilities.
+- `dynamisvfx-vulkan` complete: compute pipeline, renderer variants, hot-reload, budget allocator, debris readback, noise-field upload.
+- `dynamisvfx-bench` complete: JMH throughput and scheduling benchmarks.
+
+DynamicLightEngine integration is complete and parity gates are green.
 
 ## Scope
 
 ### In
 
-- GPU compute particle simulation (SoA state, compute dispatch, lifecycle management)
-- Emitter families (point, sphere, cone, mesh-surface, spline)
-- Renderer variants (billboard, stretched, ribbon/trail, mesh particles)
-- VFX graph/effect descriptors (node-based or data-driven)
-- Decals, destruction/debris, impact effects, environmental effects
-- Lens flares and light shafts (screen-space)
+- GPU compute particle simulation (SoA state, dispatch lifecycle, retire/emit/simulate/sort/cull)
+- Emitters: point, sphere, cone, mesh-surface, spline
+- Renderers: billboard, ribbon, mesh, beam, decal
+- Data-driven effect descriptors and fluent descriptor builders
+- Debris/destruction handoff via physics callback interface
+- Environmental/impact/lens-oriented VFX primitives
 
 ### Out
 
 - Volumetric fog (owned by DynamicLightEngine)
-- Post-process effects (owned by render graph)
+- Post-process stack (owned by render graph)
 - Macro weather orchestration
-- Water surface systems (separate candidate library)
+- Water systems (separate library candidate)
 
-## Roadmap Highlights
+## Vulkan Implementation Snapshot
 
-- Particle simulation core: multi-stage compute (`emit -> simulate -> sort -> render`), deterministic replay, LOD and sleeping
-- Emitters: burst/continuous/on-event modes, inheritance chains, GPU-driven culling
-- Renderers: soft particles, distortion, volumetric smoke/fire, decal-on-impact particles
-- VFX graph: hot reload, event chaining, GPU parameter curves, effect composition
-- Forces/fields: turbulence, vortex, vector fields, wind zones, explosion/magnetic forces
-- Noise stack: FastNoiseLiteNouveau for curl noise, 4D FBm, domain warp, and turbulence fields
-- Physics and decals: collision responses, debris handoff hooks, projected/deferred/mesh decals
-- Tooling: per-effect GPU timing, budget enforcement, regression capture, RenderDoc markers
+### Compute Stages
 
-## Modules
+- Stage 1: `RETIRE`
+- Stage 2: `EMIT`
+- Stage 3: `SIMULATE`
+- Stage 4: `SORT` (GPU radix sort, transparent path)
+- Stage 5: `CULL + COMPACT + INDIRECT WRITE`
 
-- `dynamisvfx-api`: effect descriptors and contracts (pure Java)
-- `dynamisvfx-core`: simulation logic, buffers, emitter implementations
-- `dynamisvfx-vulkan`: Vulkan-specific GPU integration
-- `dynamisvfx-test`: deterministic test utilities and mock-oriented support
-- `dynamisvfx-bench`: JMH benchmarks for throughput and performance tuning
+### Renderer Variants
 
-## Requirements
+- `BILLBOARD`
+- `RIBBON`
+- `MESH`
+- `BEAM`
+- `DECAL`
 
-- JDK 21+ (current repo toolchain runs on JDK 25)
-- Maven 3.9+
+### Runtime Systems
 
-## Build
+- 3-frame async debris readback ring for `PhysicsHandoff`
+- Hot-reload categorization (`FORCES_ONLY`, `RENDERER_CHANGED`, `FULL_RESPAWN`)
+- Background pipeline swap path
+- Global particle budget allocator (`REJECT`, `CLAMP`, `EVICT_OLDEST`)
+- Curl-noise 3D field baking/upload via FastNoiseLiteNouveau
+
+## Module Layout
+
+```text
+dynamisvfx-parent
+  dynamisvfx-api
+  dynamisvfx-core
+  dynamisvfx-vulkan
+  dynamisvfx-test
+  dynamisvfx-bench
+```
+
+## Build and Verification
+
+### Full compile
+
+```bash
+mvn -DskipTests compile
+```
+
+### Full tests
 
 ```bash
 mvn test
 ```
 
-Compile only:
+### Bench module compile/package
 
 ```bash
-mvn -DskipTests compile
+mvn -pl dynamisvfx-bench -am -DskipTests compile
+mvn -pl dynamisvfx-bench package -DskipTests
 ```
+
+### JMH smoke run
+
+```bash
+java -jar dynamisvfx-bench/target/dynamisvfx-bench.jar -wi 1 -i 1 -f 1 -t 1
+```
+
+If your environment restricts forked process networking, run JMH with `-f 0`.
 
 ## Key Dependencies
 
@@ -66,8 +104,17 @@ mvn -DskipTests compile
 - `com.cognitivedynamics:fastnoiselitenouveau:1.1.1`
 - `org.dynamisgpu:dynamis-gpu-api:1.0.1`
 - `org.dynamisgpu:dynamis-gpu-vulkan:1.0.1`
-- LWJGL 3.4.1 (BOM-managed)
+- `org.dynamisgpu:dynamis-gpu-test:1.0.1`
+- LWJGL `3.4.1` (BOM-managed)
+- JMH `1.37`
 
-## Documentation
+## Java and Tooling
 
-- Full wishlist and feature backlog: `wish_list.md`
+- Maven 3.9+
+- Project compiles with `maven.compiler.release=21`
+- Validated in this environment with JDK 25
+
+## Docs
+
+- Wishlist and backlog: `wish_list.md`
+- Vulkan design spec: `docs/dynamisvfx-vulkan-design.md`
