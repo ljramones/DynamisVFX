@@ -10,6 +10,7 @@ import org.dynamisvfx.core.builder.ParticleInit;
 import org.dynamisvfx.core.builder.Renderer;
 import org.dynamisvfx.api.BlendMode;
 import org.dynamisvfx.vulkan.compute.VulkanVfxEmitStage;
+import org.dynamisvfx.vulkan.compute.VulkanVfxCullCompactStage;
 import org.dynamisvfx.vulkan.compute.VulkanVfxRetireStage;
 import org.dynamisvfx.vulkan.compute.VulkanVfxSimulateStage;
 import org.dynamisvfx.vulkan.compute.VulkanVfxSpawnScheduler;
@@ -124,5 +125,25 @@ public final class VulkanVfxMockRuntime {
             .force(Force.drag(0.3f))
             .renderer(Renderer.billboard().blend(BlendMode.ALPHA).build())
             .build();
+    }
+
+    static int runCullCompactDrawCount(ParticleEmitterDescriptor descriptor, float deltaTime, long seed) {
+        int[] alive = run(descriptor, 1, deltaTime, seed);
+        VulkanVfxDescriptorSetLayout layout = VulkanVfxDescriptorSetLayout.create(1L);
+        VulkanVfxCullCompactStage cullStage = VulkanVfxCullCompactStage.create(1L, layout);
+
+        float[] permissiveFrustum = new float[] {
+            1f, 0f, 0f, 10000f,
+            -1f, 0f, 0f, 10000f,
+            0f, 1f, 0f, 10000f,
+            0f, -1f, 0f, 10000f,
+            0f, 0f, 1f, 10000f,
+            0f, 0f, -1f, 10000f
+        };
+
+        int drawCount = cullStage.dispatchWithMockAliveCount(1L, alive[0], false, permissiveFrustum);
+        cullStage.destroy(1L);
+        layout.destroy(1L);
+        return drawCount;
     }
 }

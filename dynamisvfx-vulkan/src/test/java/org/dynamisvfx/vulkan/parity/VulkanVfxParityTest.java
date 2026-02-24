@@ -84,4 +84,11 @@ class VulkanVfxParityTest {
         sortStage.destroy(1L);
         layout.destroy(1L);
     }
+
+    @Test
+    void cullCompactProducesNonZeroDrawCount() {
+        ParticleEmitterDescriptor descriptor = VulkanVfxMockRuntime.burstDescriptor(500, 1.0f, 2.0f);
+        int instanceCount = VulkanVfxMockRuntime.runCullCompactDrawCount(descriptor, 0.016f, 12345L);
+        assertTrue(instanceCount > 0, "instanceCount should be > 0 for a visible burst");
+    }
 }
