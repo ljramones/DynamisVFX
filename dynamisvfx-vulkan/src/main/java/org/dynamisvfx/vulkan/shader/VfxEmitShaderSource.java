@@ -71,11 +71,12 @@ public final class VfxEmitShaderSource {
 
             // Sample size
             float sampledSize = mix(emitter.sizeRange.x, emitter.sizeRange.y, rand01(rng ^ 0x7f4a7c15u));
+            float sampledLifetime = mix(emitter.lifetimeRange.x, emitter.lifetimeRange.y, rand01(rng ^ 0x6a09e667u));
 
             positions[slot]  = vec4(sampledPos, 0.0);
             velocities[slot] = vec4(sampledVel, 1.0);
             colors[slot]     = emitter.initColor;
-            attribs[slot]    = vec4(sampledSize, 0.0, 0.0, 0.0);
+            attribs[slot]    = vec4(sampledSize, 0.0, 0.0, sampledLifetime);
             meta[slot]       = uvec4(push.emitterID, rng, 0, 0);
 
             atomicAdd(aliveCount.count, 1);

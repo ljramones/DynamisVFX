@@ -10,6 +10,7 @@ public final class VulkanVfxControlBuffers {
     private static final int FORCE_ENTRY_BYTES = 32;
     private static final int MAX_FORCES = 32;
     private static final int EMITTER_DESCRIPTOR_BYTES = 256;
+    private static final int FORCE_FIELD_HEADER_BYTES = 16;
 
     private final VulkanBufferAlloc freeListBuffer;
     private final VulkanBufferAlloc aliveCountBuffer;
@@ -44,7 +45,7 @@ public final class VulkanVfxControlBuffers {
             allocateStorageBuffer(memoryOps, config.maxParticles() * Integer.BYTES, usage),
             allocateStorageBuffer(memoryOps, Integer.BYTES, usage),
             allocateStorageBuffer(memoryOps, EMITTER_DESCRIPTOR_BYTES, usage),
-            allocateStorageBuffer(memoryOps, FORCE_ENTRY_BYTES * MAX_FORCES, usage),
+            allocateStorageBuffer(memoryOps, FORCE_FIELD_HEADER_BYTES + (FORCE_ENTRY_BYTES * MAX_FORCES), usage),
             config.maxParticles(),
             usage
         );
