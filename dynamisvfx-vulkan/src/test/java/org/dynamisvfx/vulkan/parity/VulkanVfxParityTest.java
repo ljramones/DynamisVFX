@@ -1,6 +1,9 @@
 package org.dynamisvfx.vulkan.parity;
 
+import org.dynamisvfx.api.BlendMode;
 import org.dynamisvfx.api.ParticleEmitterDescriptor;
+import org.dynamisvfx.vulkan.compute.VulkanVfxSortStage;
+import org.dynamisvfx.vulkan.descriptor.VulkanVfxDescriptorSetLayout;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
@@ -48,5 +51,37 @@ class VulkanVfxParityTest {
         int[] second = VulkanVfxMockRuntime.run(descriptor, 60, 0.016f, 777L);
 
         assertArrayEquals(first, second);
+    }
+
+    @Test
+    void additiveBlendSkipsSortStage() {
+        VulkanVfxDescriptorSetLayout layout = VulkanVfxDescriptorSetLayout.create(1L);
+        VulkanVfxSortStage sortStage = VulkanVfxSortStage.create(1L, layout, 1024);
+        sortStage.dispatchWithMockDistances(1L, BlendMode.ADDITIVE, new float[] {4f, 1f, 9f});
+
+        assertTrue(sortStage.lastSkipped(), "additive blend must skip sort");
+        assertEquals(0, sortStage.lastSortedKeys().length);
+        assertEquals(0, sortStage.lastSortedIndices().length);
+
+        sortStage.destroy(1L);
+        layout.destroy(1L);
+    }
+
+    @Test
+    void sortedOutputKeysAreMonotonic() {
+        VulkanVfxDescriptorSetLayout layout = VulkanVfxDescriptorSetLayout.create(1L);
+        VulkanVfxSortStage sortStage = VulkanVfxSortStage.create(1L, layout, 1024);
+        sortStage.dispatchWithMockDistances(1L, BlendMode.ALPHA, new float[] {
+            25f, 9f, 16f, 1f, 36f, 4f
+        });
+
+        int[] sorted = sortStage.lastSortedKeys();
+        assertTrue(sorted.length > 0);
+        for (int i = 1; i < sorted.length; i++) {
+            assertTrue(sorted[i] >= sorted[i - 1], "sorted keys must be non-decreasing");
+        }
+
+        sortStage.destroy(1L);
+        layout.destroy(1L);
     }
 }
