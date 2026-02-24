@@ -91,4 +91,13 @@ class VulkanVfxParityTest {
         int instanceCount = VulkanVfxMockRuntime.runCullCompactDrawCount(descriptor, 0.016f, 12345L);
         assertTrue(instanceCount > 0, "instanceCount should be > 0 for a visible burst");
     }
+
+    @Test
+    void debrisHandoffFiredAfterTwoFrameDelay() {
+        int[] events = VulkanVfxMockRuntime.runDebrisHandoffTimeline(4);
+        assertEquals(0, events[0], "no debris events should be readable on frame 1");
+        assertEquals(0, events[1], "no debris events should be readable on frame 2");
+        assertTrue(events[2] > 0, "debris events should appear on frame 3+");
+        assertTrue(events[3] > 0, "debris events should continue on subsequent frames");
+    }
 }

@@ -18,6 +18,10 @@ import org.dynamisvfx.vulkan.compute.VulkanVfxSpawnScheduler;
 import org.dynamisvfx.vulkan.descriptor.VulkanVfxDescriptorSetLayout;
 import org.dynamisvfx.vulkan.descriptor.VulkanVfxDescriptorSets;
 import org.dynamisvfx.vulkan.indirect.VulkanVfxIndirectWriter;
+import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisCandidate;
+import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisCandidateWriter;
+import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisReadbackBuffer;
+import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisReadbackRing;
 import org.dynamisvfx.vulkan.resources.VulkanVfxEffectResources;
 
 import java.util.HashMap;
@@ -37,6 +41,8 @@ public final class VulkanVfxService implements VfxService {
     private final VulkanVfxSortStage sortStage;
     private final VulkanVfxCullCompactStage cullCompactStage;
     private final VulkanVfxSpawnScheduler spawnScheduler;
+    private final VulkanVfxDebrisCandidateWriter debrisCandidateWriter;
+    private final VulkanVfxDebrisReadbackRing readbackRing;
 
     private final AtomicInteger nextHandleId = new AtomicInteger(1);
     private final Map<Integer, EffectState> effects = new HashMap<>();
@@ -53,6 +59,11 @@ public final class VulkanVfxService implements VfxService {
         this.sortStage = VulkanVfxSortStage.create(device, layout, 1_048_576);
         this.cullCompactStage = VulkanVfxCullCompactStage.create(device, layout);
         this.spawnScheduler = new VulkanVfxSpawnScheduler();
+        this.debrisCandidateWriter = VulkanVfxDebrisCandidateWriter.create(device, layout);
+        this.readbackRing = VulkanVfxDebrisReadbackRing.allocate(
+            memoryOps,
+            VulkanVfxDebrisReadbackBuffer.DEFAULT_MAX_CANDIDATES
+        );
     }
 
     @Override
@@ -62,9 +73,11 @@ public final class VulkanVfxService implements VfxService {
 
         long commandBuffer = ctx.commandBuffer();
         long set0 = 1L; // Per-frame shared set placeholder until frame-set allocator is wired.
-        int frameIndex = (int) ctx.frameIndex();
+        long frameIndexLong = ctx.frameIndex();
+        int frameIndex = (int) frameIndexLong;
         float[] frustum = normalizeFrustum(ctx.frustumPlanes());
         float[] cameraPos = extractCameraPos(ctx.cameraView());
+        processDebrisReadback(frameIndexLong);
 
         for (VfxHandle handle : activeEffects) {
             EffectState state = effects.get(handle.id());
@@ -103,6 +116,7 @@ public final class VulkanVfxService implements VfxService {
 
             cullCompactStage.dispatch(commandBuffer, resources, sets, set0, frameIndex, needsSort, frustum);
             VulkanVfxCullCompactStage.insertPostCullBarrier(commandBuffer);
+            debrisCandidateWriter.dispatch(commandBuffer, resources, sets, readbackRing.writeBuffer(frameIndexLong), set0, frameIndex, 0.8f, 5.0f);
 
             state.aliveCount = Math.min(resources.config().maxParticles(), Math.max(0, state.aliveCount + spawnCount));
             state.lastDrawInstanceCount = cullCompactStage.lastInstanceCount();
@@ -207,11 +221,26 @@ public final class VulkanVfxService implements VfxService {
         simulateStage.destroy(device);
         sortStage.destroy(device);
         cullCompactStage.destroy(device);
+        debrisCandidateWriter.destroy(device);
+        readbackRing.destroy(memoryOps);
         physicsHandoff = null;
     }
 
     public PhysicsHandoff physicsHandoff() {
         return physicsHandoff;
+    }
+
+    void processDebrisReadback(long frameIndex) {
+        VulkanVfxDebrisReadbackBuffer readBuffer = readbackRing.readBuffer(frameIndex);
+        List<VulkanVfxDebrisCandidate> candidates = readBuffer.readCandidates(memoryOps);
+        if (physicsHandoff == null) {
+            return;
+        }
+        for (VulkanVfxDebrisCandidate candidate : candidates) {
+            EffectState effect = effects.get(candidate.emitterId());
+            float[] transform = effect == null ? DEFAULT_TRANSFORM : effect.transform;
+            physicsHandoff.onDebrisSpawn(candidate.toSpawnEvent(transform));
+        }
     }
 
     private static float[] normalizedTransform(float[] transform) {

@@ -34,7 +34,7 @@ public final class VulkanVfxDescriptorPool {
 
         int perFrameEffectSets = maxEffects * framesInFlight;
         int uniformBuffers = framesInFlight;
-        int storageBuffers = (5 + 4 + 4) * perFrameEffectSets;
+        int storageBuffers = (5 + 4 + 5) * perFrameEffectSets;
         int storageImages = perFrameEffectSets;
         int combinedSamplers = 3 * perFrameEffectSets;
 

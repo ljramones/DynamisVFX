@@ -15,6 +15,9 @@ import org.dynamisvfx.vulkan.compute.VulkanVfxRetireStage;
 import org.dynamisvfx.vulkan.compute.VulkanVfxSimulateStage;
 import org.dynamisvfx.vulkan.compute.VulkanVfxSpawnScheduler;
 import org.dynamisvfx.vulkan.descriptor.VulkanVfxDescriptorSetLayout;
+import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisCandidate;
+import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisReadbackBuffer;
+import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisReadbackRing;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -145,5 +148,33 @@ public final class VulkanVfxMockRuntime {
         cullStage.destroy(1L);
         layout.destroy(1L);
         return drawCount;
+    }
+
+    static int[] runDebrisHandoffTimeline(int steps) {
+        VulkanVfxDebrisReadbackRing ring = VulkanVfxDebrisReadbackRing.allocateForTest(64);
+        int[] eventsPerStep = new int[Math.max(0, steps)];
+        float[] identity = new float[16];
+        identity[0] = 1f;
+        identity[5] = 1f;
+        identity[10] = 1f;
+        identity[15] = 1f;
+
+        for (int step = 0; step < steps; step++) {
+            VulkanVfxDebrisReadbackBuffer read = ring.readBuffer(step);
+            List<VulkanVfxDebrisCandidate> candidates = read.readCandidates();
+            for (VulkanVfxDebrisCandidate candidate : candidates) {
+                candidate.toSpawnEvent(identity);
+            }
+            eventsPerStep[step] = candidates.size();
+
+            VulkanVfxDebrisReadbackBuffer write = ring.writeBuffer(step);
+            write.resetOnGpu(1L);
+            write.writeMockCandidates(List.of(new VulkanVfxDebrisCandidate(
+                0f, 0f, 0f, 1f,
+                10f, 0f, 0f, 0f,
+                1, 1, 77, 1
+            )));
+        }
+        return eventsPerStep;
     }
 }
