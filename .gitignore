@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+
+# Java
+*.class
+hs_err_pid*
+replay_pid*
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+
+# Test and coverage artifacts
+surefire-reports/
+failsafe-reports/
+jacoco.exec
+
+# JMH / benchmarks
+jmh-result*.json
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
