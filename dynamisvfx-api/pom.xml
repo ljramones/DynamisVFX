@@ -12,4 +12,12 @@
 
     <artifactId>dynamisvfx-api</artifactId>
     <name>DynamisVFX API</name>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.dynamisgpu</groupId>
+            <artifactId>dynamis-gpu-api</artifactId>
+            <version>1.0.1</version>
+        </dependency>
+    </dependencies>
 </project>

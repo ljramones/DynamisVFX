@@ -7,8 +7,8 @@ public record ParticleInitDescriptor(
     float speedMax,
     float sizeMin,
     float sizeMax,
-    Vec3f initialDirection,
-    Vec3f colorRgb,
+    float[] initialDirection,
+    float[] colorRgb,
     float alpha
 ) {
 }

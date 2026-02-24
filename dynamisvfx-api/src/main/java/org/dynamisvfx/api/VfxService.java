@@ -7,11 +7,11 @@ public interface VfxService {
 
     void recordDraws(List<VfxHandle> activeEffects, VfxDrawContext ctx);
 
-    VfxHandle spawn(ParticleEmitterDescriptor descriptor, Mat4f transform);
+    VfxHandle spawn(ParticleEmitterDescriptor descriptor, float[] transform);
 
     void despawn(VfxHandle handle);
 
-    void updateTransform(VfxHandle handle, Mat4f transform);
+    void updateTransform(VfxHandle handle, float[] transform);
 
     void setPhysicsHandoff(PhysicsHandoff handoff);
 

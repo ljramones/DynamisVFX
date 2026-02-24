@@ -3,9 +3,9 @@ package org.dynamisvfx.api;
 public interface VfxFrameContext {
     long commandBuffer();
 
-    Mat4f cameraView();
+    float[] cameraView();
 
-    Mat4f cameraProjection();
+    float[] cameraProjection();
 
     float[] frustumPlanes();
 
