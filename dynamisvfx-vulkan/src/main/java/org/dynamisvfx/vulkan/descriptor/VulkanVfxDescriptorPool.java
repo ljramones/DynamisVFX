@@ -36,7 +36,7 @@ public final class VulkanVfxDescriptorPool {
         int uniformBuffers = framesInFlight;
         int storageBuffers = (5 + 4 + 4) * perFrameEffectSets;
         int storageImages = perFrameEffectSets;
-        int combinedSamplers = 2 * perFrameEffectSets;
+        int combinedSamplers = 3 * perFrameEffectSets;
 
         List<PoolSize> sizes = List.of(
             new PoolSize(VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniformBuffers),
