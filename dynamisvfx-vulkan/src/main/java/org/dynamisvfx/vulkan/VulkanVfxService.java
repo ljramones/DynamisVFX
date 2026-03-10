@@ -30,6 +30,8 @@ import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisCandidateWriter;
 import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisReadbackBuffer;
 import org.dynamisvfx.vulkan.physics.VulkanVfxDebrisReadbackRing;
 import org.dynamisvfx.vulkan.resources.VulkanVfxEffectResources;
+import org.dynamisvfx.vulkan.internal.gpu.DefaultVfxGpuCommandAdapter;
+import org.dynamisvfx.vulkan.internal.gpu.VfxGpuCommandAdapter;
 
 import java.util.HashMap;
 import java.util.List;
@@ -53,6 +55,7 @@ public final class VulkanVfxService implements VfxService {
     private final VulkanVfxHotReloader hotReloader;
     private final int framesInFlight;
     private final VfxBudgetAllocator budgetAllocator;
+    private final VfxGpuCommandAdapter gpuCommandAdapter;
     private final Map<Integer, Integer> allocationToHandle = new HashMap<>();
 
     private final AtomicInteger nextHandleId = new AtomicInteger(1);
@@ -63,9 +66,14 @@ public final class VulkanVfxService implements VfxService {
     private VfxHandle lastRespawnedHandle;
 
     public VulkanVfxService(long device, VulkanMemoryOps memoryOps, VulkanVfxDescriptorSetLayout layout) {
+        this(device, memoryOps, layout, new DefaultVfxGpuCommandAdapter());
+    }
+
+    VulkanVfxService(long device, VulkanMemoryOps memoryOps, VulkanVfxDescriptorSetLayout layout, VfxGpuCommandAdapter gpuCommandAdapter) {
         Objects.requireNonNull(layout, "layout");
         this.device = device;
         this.memoryOps = memoryOps;
+        this.gpuCommandAdapter = gpuCommandAdapter == null ? new DefaultVfxGpuCommandAdapter() : gpuCommandAdapter;
         this.retireStage = VulkanVfxRetireStage.create(device, layout);
         this.emitStage = VulkanVfxEmitStage.create(device, layout);
         this.simulateStage = VulkanVfxSimulateStage.create(device, layout);
@@ -89,7 +97,7 @@ public final class VulkanVfxService implements VfxService {
         Objects.requireNonNull(activeEffects, "activeEffects");
         Objects.requireNonNull(ctx, "ctx");
 
-        long commandBuffer = ctx.commandBuffer();
+        long commandBuffer = resolveCommandBuffer(ctx);
         long set0 = 1L; // Per-frame shared set placeholder until frame-set allocator is wired.
         long frameIndexLong = ctx.frameIndex();
         int frameIndex = (int) frameIndexLong;
@@ -277,6 +285,10 @@ public final class VulkanVfxService implements VfxService {
         readbackRing.destroy(memoryOps);
         hotReloader.destroy();
         physicsHandoff = null;
+    }
+
+    long resolveCommandBuffer(VfxFrameContext ctx) {
+        return gpuCommandAdapter.commandBuffer(ctx);
     }
 
     public PhysicsHandoff physicsHandoff() {
