@@ -41,7 +41,7 @@ public final class VulkanVfxIndirectWriter {
     @Deprecated(since = "0.1.0")
     public static void writeDrawCommand(IndirectCommandBuffer indirectBuffer, int slot, int instanceCount) {
         Objects.requireNonNull(indirectBuffer, "indirectBuffer");
-        writeDrawCommand(VfxIndirectCommandSink.from(indirectBuffer), slot, instanceCount);
+        indirectBuffer.writeCommand(slot, BILLBOARD_INDEX_COUNT, instanceCount, 0, 0, 0);
     }
 
     public static void insertPreDrawBarrier(long commandBuffer) {
