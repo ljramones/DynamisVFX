@@ -69,6 +69,15 @@ public final class VulkanVfxService implements VfxService {
         this(device, memoryOps, layout, new DefaultVfxGpuCommandAdapter());
     }
 
+    /**
+     * LightEngine-facing integration seam: constructs the default Vulkan VFX service
+     * without exposing descriptor package details to external consumers.
+     */
+    public static VulkanVfxService createDefault(long device) {
+        VulkanVfxDescriptorSetLayout layout = VulkanVfxDescriptorSetLayout.create(device);
+        return new VulkanVfxService(device, null, layout);
+    }
+
     VulkanVfxService(long device, VulkanMemoryOps memoryOps, VulkanVfxDescriptorSetLayout layout, VfxGpuCommandAdapter gpuCommandAdapter) {
         Objects.requireNonNull(layout, "layout");
         this.device = device;
