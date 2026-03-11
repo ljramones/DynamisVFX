@@ -7,5 +7,4 @@ module org.dynamisvfx.vulkan {
     requires java.logging;
 
     exports org.dynamisvfx.vulkan;
-    exports org.dynamisvfx.vulkan.descriptor;
 }
