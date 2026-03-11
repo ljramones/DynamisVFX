@@ -1,10 +1,10 @@
 package org.dynamisvfx.test.mock;
 
-import org.dynamisgpu.api.gpu.DescriptorWriter;
-import org.dynamisgpu.api.gpu.IndirectCommandBuffer;
 import org.dynamisgpu.test.mock.MockDescriptorWriter;
 import org.dynamisgpu.test.mock.MockIndirectCommandBuffer;
+import org.dynamisvfx.api.VfxDescriptorBindingWriter;
 import org.dynamisvfx.api.VfxDrawContext;
+import org.dynamisvfx.api.VfxIndirectCommandSink;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -12,17 +12,64 @@ import java.util.Map;
 public final class MockVfxDrawContext implements VfxDrawContext {
     private final MockIndirectCommandBuffer indirectBuffer = new MockIndirectCommandBuffer(1L, 2L, new int[] {0}, new int[] {4096});
     private final MockDescriptorWriter bindlessHeap = new MockDescriptorWriter();
+    private final VfxIndirectCommandSink indirectSink = new VfxIndirectCommandSink() {
+        @Override
+        public void writeCommand(int slot, int indexCount, int instanceCount, int firstIndex, int vertexOffset, int firstInstance) {
+            indirectBuffer.writeCommand(slot, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        }
+
+        @Override
+        public long bufferHandle() {
+            return indirectBuffer.bufferHandle();
+        }
+
+        @Override
+        public long countBufferHandle() {
+            return indirectBuffer.countBufferHandle();
+        }
+
+        @Override
+        public int variantOffset(int variantIndex) {
+            return indirectBuffer.variantOffset(variantIndex);
+        }
+
+        @Override
+        public int variantCapacity(int variantIndex) {
+            return indirectBuffer.variantCapacity(variantIndex);
+        }
+
+        @Override
+        public void destroy() {
+            indirectBuffer.destroy();
+        }
+    };
+    private final VfxDescriptorBindingWriter descriptorWriter = new VfxDescriptorBindingWriter() {
+        @Override
+        public void writeStorageBuffer(long descriptorSet, int binding, int arrayElement, long bufferHandle, long offset, long range) {
+            bindlessHeap.writeStorageBuffer(descriptorSet, binding, arrayElement, bufferHandle, offset, range);
+        }
+
+        @Override
+        public void writeUniformBuffer(long descriptorSet, int binding, int arrayElement, long bufferHandle, long offset, long range) {
+            bindlessHeap.writeUniformBuffer(descriptorSet, binding, arrayElement, bufferHandle, offset, range);
+        }
+
+        @Override
+        public void writeSampledImage(long descriptorSet, int binding, int arrayElement, long imageView, long sampler) {
+            bindlessHeap.writeSampledImage(descriptorSet, binding, arrayElement, imageView, sampler);
+        }
+    };
     private final Map<Long, Integer> drawCallsPerFrame = new HashMap<>();
     private long frameIndex;
 
     @Override
-    public IndirectCommandBuffer indirectBuffer() {
-        return indirectBuffer;
+    public VfxIndirectCommandSink indirectCommandSink() {
+        return indirectSink;
     }
 
     @Override
-    public DescriptorWriter bindlessHeap() {
-        return bindlessHeap;
+    public VfxDescriptorBindingWriter bindlessHeapWriter() {
+        return descriptorWriter;
     }
 
     @Override
