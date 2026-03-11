@@ -1,6 +1,7 @@
 package org.dynamisvfx.vulkan.indirect;
 
 import org.dynamisgpu.api.gpu.IndirectCommandBuffer;
+import org.dynamisvfx.api.VfxIndirectCommandSink;
 import org.dynamisvfx.vulkan.resources.VulkanVfxEffectResources;
 import org.lwjgl.vulkan.VK10;
 
@@ -22,8 +23,8 @@ public final class VulkanVfxIndirectWriter {
             .writeCommand(0, BILLBOARD_INDEX_COUNT, 0, 0, 0, 0);
     }
 
-    public static void writeDrawCommand(IndirectCommandBuffer indirectBuffer, int slot, int instanceCount) {
-        Objects.requireNonNull(indirectBuffer, "indirectBuffer");
+    public static void writeDrawCommand(VfxIndirectCommandSink indirectSink, int slot, int instanceCount) {
+        Objects.requireNonNull(indirectSink, "indirectSink");
         if (slot < 0) {
             throw new IllegalArgumentException("slot must be >= 0");
         }
@@ -31,7 +32,16 @@ public final class VulkanVfxIndirectWriter {
             throw new IllegalArgumentException("instanceCount must be >= 0");
         }
 
-        indirectBuffer.writeCommand(slot, BILLBOARD_INDEX_COUNT, instanceCount, 0, 0, 0);
+        indirectSink.writeCommand(slot, BILLBOARD_INDEX_COUNT, instanceCount, 0, 0, 0);
+    }
+
+    /**
+     * Legacy compatibility path for callers still using GPU API command buffers directly.
+     */
+    @Deprecated(since = "0.1.0")
+    public static void writeDrawCommand(IndirectCommandBuffer indirectBuffer, int slot, int instanceCount) {
+        Objects.requireNonNull(indirectBuffer, "indirectBuffer");
+        writeDrawCommand(VfxIndirectCommandSink.from(indirectBuffer), slot, instanceCount);
     }
 
     public static void insertPreDrawBarrier(long commandBuffer) {

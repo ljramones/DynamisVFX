@@ -1,6 +1,6 @@
 package org.dynamisvfx.vulkan;
 
-import org.dynamisgpu.api.gpu.IndirectCommandBuffer;
+import org.dynamisvfx.api.VfxIndirectCommandSink;
 import org.dynamisgpu.vulkan.memory.VulkanMemoryOps;
 import org.dynamisvfx.api.ParticleEmitterDescriptor;
 import org.dynamisvfx.api.PhysicsHandoff;
@@ -156,8 +156,7 @@ public final class VulkanVfxService implements VfxService {
     public void recordDraws(List<VfxHandle> activeEffects, VfxDrawContext ctx) {
         Objects.requireNonNull(activeEffects, "activeEffects");
         Objects.requireNonNull(ctx, "ctx");
-
-        IndirectCommandBuffer out = ctx.indirectBuffer();
+        VfxIndirectCommandSink out = ctx.indirectCommandSink();
         int slot = 0;
         for (VfxHandle handle : activeEffects) {
             EffectState state = effects.get(handle.id());
