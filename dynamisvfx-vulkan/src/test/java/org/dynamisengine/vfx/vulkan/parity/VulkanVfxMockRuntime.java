@@ -2,6 +2,7 @@ package org.dynamisengine.vfx.vulkan.parity;
 
 import org.dynamisengine.vfx.api.EmissionRateDescriptor;
 import org.dynamisengine.vfx.api.ParticleEmitterDescriptor;
+import org.dynamisengine.vfx.api.RendererDescriptor;
 import org.dynamisengine.vfx.api.VfxHandle;
 import org.dynamisengine.vfx.core.builder.EffectBuilder;
 import org.dynamisengine.vfx.core.builder.EmissionRate;
@@ -280,6 +281,157 @@ public final class VulkanVfxMockRuntime {
             }
         }
         return signature;
+    }
+
+    static float runPositionSignatureWithForces(
+        ParticleEmitterDescriptor descriptor,
+        int steps,
+        float deltaTime,
+        long seed
+    ) {
+        Random random = new Random(seed);
+        int maxParticles = 512;
+        List<ParticleState> particles = new ArrayList<>();
+        VulkanVfxSpawnScheduler scheduler = new VulkanVfxSpawnScheduler();
+
+        boolean hasGravity = descriptor.forces() != null
+            && descriptor.forces().stream().anyMatch(f -> f != null && f.type() == org.dynamisengine.vfx.api.ForceType.GRAVITY);
+        boolean hasDrag = descriptor.forces() != null
+            && descriptor.forces().stream().anyMatch(f -> f != null && f.type() == org.dynamisengine.vfx.api.ForceType.DRAG);
+        boolean hasWind = descriptor.forces() != null
+            && descriptor.forces().stream().anyMatch(f -> f != null && f.type() == org.dynamisengine.vfx.api.ForceType.WIND);
+        boolean hasCurlNoise = descriptor.forces() != null
+            && descriptor.forces().stream().anyMatch(f -> f != null && f.type() == org.dynamisengine.vfx.api.ForceType.CURL_NOISE);
+
+        float gravityStrength = 0f;
+        float dragStrength = 0f;
+        float windStrength = 0f;
+        float[] windDir = new float[] {0f, 0f, 0f};
+
+        if (descriptor.forces() != null) {
+            for (var f : descriptor.forces()) {
+                if (f == null) {
+                    continue;
+                }
+                switch (f.type()) {
+                    case GRAVITY -> gravityStrength = f.strength();
+                    case DRAG -> dragStrength = f.strength();
+                    case WIND -> {
+                        windStrength = f.strength();
+                        if (f.direction() != null && f.direction().length >= 3) {
+                            windDir = f.direction();
+                        }
+                    }
+                    default -> { }
+                }
+            }
+        }
+
+        float signature = 0f;
+        for (int step = 0; step < steps; step++) {
+            particles.removeIf(p -> p.age >= 1.0f);
+
+            int spawnCount = scheduler.computeSpawnCount(descriptor.rate(), deltaTime, maxParticles - particles.size());
+            for (int i = 0; i < spawnCount; i++) {
+                float life = sampleLifetime(descriptor, random);
+                particles.add(new ParticleState(0f, 0f, 0f, 0.1f, 0.2f, 0.3f, life, 0f));
+            }
+
+            for (ParticleState p : particles) {
+                if (hasGravity) {
+                    p.vy -= gravityStrength * deltaTime;
+                }
+                if (hasDrag) {
+                    p.vx *= (1f - dragStrength * deltaTime);
+                    p.vy *= (1f - dragStrength * deltaTime);
+                    p.vz *= (1f - dragStrength * deltaTime);
+                }
+                if (hasWind) {
+                    p.vx += windDir[0] * windStrength * deltaTime;
+                    p.vy += windDir[1] * windStrength * deltaTime;
+                    p.vz += windDir[2] * windStrength * deltaTime;
+                }
+                if (hasCurlNoise) {
+                    float jitter = (float) Math.sin((step + 1) * 0.17f + p.age * 3.1f) * 0.05f;
+                    p.vx += jitter;
+                    p.vy += jitter * 0.5f;
+                    p.vz -= jitter * 0.25f;
+                }
+                p.x += p.vx * deltaTime;
+                p.y += p.vy * deltaTime;
+                p.z += p.vz * deltaTime;
+                p.age += deltaTime / Math.max(p.lifetime, 0.001f);
+                signature += Math.abs(p.x) + Math.abs(p.y) + Math.abs(p.z);
+            }
+        }
+        return signature;
+    }
+
+    static int[] runWithVariableDeltaTime(
+        ParticleEmitterDescriptor descriptor,
+        float[] deltaTimes,
+        long seed
+    ) {
+        if (deltaTimes.length == 0) {
+            return new int[0];
+        }
+
+        VulkanVfxDescriptorSetLayout layout = VulkanVfxDescriptorSetLayout.create(1L);
+        VulkanVfxRetireStage retireStage = VulkanVfxRetireStage.create(1L, layout);
+        VulkanVfxEmitStage emitStage = VulkanVfxEmitStage.create(1L, layout);
+        VulkanVfxSimulateStage simulateStage = VulkanVfxSimulateStage.create(1L, layout);
+
+        VulkanVfxSpawnScheduler scheduler = new VulkanVfxSpawnScheduler();
+        Random random = new Random(seed);
+        int maxParticles = 65_536;
+
+        List<Float> normalizedAges = new ArrayList<>();
+        int[] aliveCounts = new int[deltaTimes.length];
+
+        for (int step = 0; step < deltaTimes.length; step++) {
+            float dt = deltaTimes[step];
+            normalizedAges.removeIf(age -> age >= RETIRE_THRESHOLD);
+
+            int freeSlots = maxParticles - normalizedAges.size();
+            int spawnCount = scheduler.computeSpawnCount(descriptor.rate(), dt, freeSlots);
+
+            for (int i = 0; i < spawnCount; i++) {
+                float lifetime = sampleLifetime(descriptor, random);
+                float ageAdvance = dt / Math.max(lifetime, 0.001f);
+                normalizedAges.add(ageAdvance);
+            }
+
+            for (int i = 0; i < normalizedAges.size(); i++) {
+                float lifetime = sampleLifetime(descriptor, random);
+                float age = normalizedAges.get(i);
+                age += dt / Math.max(lifetime, 0.001f);
+                normalizedAges.set(i, age);
+            }
+
+            aliveCounts[step] = normalizedAges.size();
+
+            retireStage.lastDispatchGroupCount();
+            emitStage.lastDispatchGroupCount();
+            simulateStage.lastDispatchGroupCount();
+        }
+
+        retireStage.destroy(1L);
+        emitStage.destroy(1L);
+        simulateStage.destroy(1L);
+        layout.destroy(1L);
+
+        return aliveCounts;
+    }
+
+    static ParticleEmitterDescriptor withRenderer(ParticleEmitterDescriptor base, RendererDescriptor renderer) {
+        return EffectBuilder.emitter(base.id())
+            .shape(EmitterShape.sphere(0.5f))
+            .rate(base.rate())
+            .init(base.init())
+            .force(Force.gravity(9.8f))
+            .force(Force.drag(0.25f))
+            .renderer(renderer)
+            .build();
     }
 
     private static final class ParticleState {
