@@ -1,6 +1,6 @@
 package org.dynamisengine.vfx.vulkan.noise;
 
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanImageOps;
 import org.dynamisengine.vfx.core.noise.CurlFieldConfig;
 import org.dynamisengine.vfx.core.noise.NoiseFieldBaker;
 
@@ -16,7 +16,7 @@ public final class VulkanVfxNoiseFieldUploader {
         long commandBuffer,
         VulkanVfxNoiseField3D noiseField,
         VulkanVfxNoiseFieldConfig config,
-        VulkanMemoryOps memoryOps
+        VulkanImageOps memoryOps
     ) {
         if (commandBuffer == 0L) {
             throw new IllegalArgumentException("commandBuffer must be non-zero");

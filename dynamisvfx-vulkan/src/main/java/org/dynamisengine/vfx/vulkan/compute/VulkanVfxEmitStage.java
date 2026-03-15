@@ -1,6 +1,6 @@
 package org.dynamisengine.vfx.vulkan.compute;
 
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanBufferOps;
 import org.dynamisengine.vfx.vulkan.descriptor.VulkanVfxDescriptorSetLayout;
 import org.dynamisengine.vfx.vulkan.descriptor.VulkanVfxDescriptorSets;
 import org.dynamisengine.vfx.vulkan.emitter.PackedEmitterDescriptor;
@@ -94,7 +94,7 @@ public final class VulkanVfxEmitStage {
         long commandBuffer,
         VulkanVfxEffectResources resources,
         PackedEmitterDescriptor packed,
-        VulkanMemoryOps memoryOps
+        VulkanBufferOps memoryOps
     ) {
         if (commandBuffer == 0L) {
             throw new IllegalArgumentException("commandBuffer must be non-zero");
@@ -123,7 +123,7 @@ public final class VulkanVfxEmitStage {
     public void uploadEmitterDescriptor(
         long commandBuffer,
         VulkanVfxEffectResources resources,
-        VulkanMemoryOps memoryOps
+        VulkanBufferOps memoryOps
     ) {
         PackedEmitterDescriptor packed = VulkanEmitterDescriptorPacker.pack(resources.descriptor());
         uploadEmitterDescriptor(commandBuffer, resources, packed, memoryOps);

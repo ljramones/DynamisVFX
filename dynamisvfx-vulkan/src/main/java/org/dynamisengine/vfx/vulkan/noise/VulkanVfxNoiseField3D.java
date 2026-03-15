@@ -1,6 +1,6 @@
 package org.dynamisengine.vfx.vulkan.noise;
 
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanImageOps;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
@@ -21,7 +21,7 @@ public final class VulkanVfxNoiseField3D {
 
     public static VulkanVfxNoiseField3D allocate(
         long device,
-        VulkanMemoryOps memoryOps,
+        VulkanImageOps memoryOps,
         VulkanVfxNoiseFieldConfig config
     ) {
         if (device == Long.MIN_VALUE) {
@@ -52,7 +52,7 @@ public final class VulkanVfxNoiseField3D {
         return lastUploadedRgba16f == null ? null : lastUploadedRgba16f.clone();
     }
 
-    public void destroy(long device, VulkanMemoryOps memoryOps) {
+    public void destroy(long device, VulkanImageOps memoryOps) {
         if (device == Long.MIN_VALUE) {
             throw new IllegalArgumentException("Invalid device handle");
         }

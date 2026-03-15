@@ -1,6 +1,6 @@
 package org.dynamisengine.vfx.vulkan.compute;
 
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanBufferOps;
 import org.dynamisengine.vfx.api.ForceDescriptor;
 import org.dynamisengine.vfx.api.ForceType;
 import org.dynamisengine.vfx.api.NoiseForceConfig;
@@ -67,7 +67,7 @@ public final class VulkanVfxSimulateStage {
         long set0,
         int frameIndex,
         List<ForceDescriptor> forces,
-        VulkanMemoryOps memoryOps
+        VulkanBufferOps memoryOps
     ) {
         if (commandBuffer == 0L) {
             throw new IllegalArgumentException("commandBuffer must be non-zero");
@@ -102,7 +102,7 @@ public final class VulkanVfxSimulateStage {
         long commandBuffer,
         VulkanVfxEffectResources resources,
         PackedForceBuffer packed,
-        VulkanMemoryOps memoryOps
+        VulkanBufferOps memoryOps
     ) {
         if (commandBuffer == 0L) {
             throw new IllegalArgumentException("commandBuffer must be non-zero");

@@ -1,7 +1,8 @@
 package org.dynamisengine.vfx.vulkan;
 
 import org.dynamisengine.vfx.api.VfxIndirectCommandSink;
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanBufferOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanImageOps;
 import org.dynamisengine.vfx.api.ParticleEmitterDescriptor;
 import org.dynamisengine.vfx.api.PhysicsHandoff;
 import org.dynamisengine.vfx.api.VfxDrawContext;
@@ -43,7 +44,8 @@ public final class VulkanVfxService implements VfxService {
     private static final float[] DEFAULT_TRANSFORM = new float[16];
 
     private final long device;
-    private final VulkanMemoryOps memoryOps;
+    private final VulkanBufferOps bufferOps;
+    private final VulkanImageOps imageOps;
     private final VulkanVfxRetireStage retireStage;
     private final VulkanVfxEmitStage emitStage;
     private final VulkanVfxSimulateStage simulateStage;
@@ -65,8 +67,8 @@ public final class VulkanVfxService implements VfxService {
     private PhysicsHandoff physicsHandoff;
     private VfxHandle lastRespawnedHandle;
 
-    public VulkanVfxService(long device, VulkanMemoryOps memoryOps, VulkanVfxDescriptorSetLayout layout) {
-        this(device, memoryOps, layout, new DefaultVfxGpuCommandAdapter());
+    public VulkanVfxService(long device, VulkanBufferOps bufferOps, VulkanImageOps imageOps, VulkanVfxDescriptorSetLayout layout) {
+        this(device, bufferOps, imageOps, layout, new DefaultVfxGpuCommandAdapter());
     }
 
     /**
@@ -75,13 +77,14 @@ public final class VulkanVfxService implements VfxService {
      */
     public static VulkanVfxService createDefault(long device) {
         VulkanVfxDescriptorSetLayout layout = VulkanVfxDescriptorSetLayout.create(device);
-        return new VulkanVfxService(device, null, layout);
+        return new VulkanVfxService(device, null, null, layout);
     }
 
-    VulkanVfxService(long device, VulkanMemoryOps memoryOps, VulkanVfxDescriptorSetLayout layout, VfxGpuCommandAdapter gpuCommandAdapter) {
+    VulkanVfxService(long device, VulkanBufferOps bufferOps, VulkanImageOps imageOps, VulkanVfxDescriptorSetLayout layout, VfxGpuCommandAdapter gpuCommandAdapter) {
         Objects.requireNonNull(layout, "layout");
         this.device = device;
-        this.memoryOps = memoryOps;
+        this.bufferOps = bufferOps;
+        this.imageOps = imageOps;
         this.gpuCommandAdapter = gpuCommandAdapter == null ? new DefaultVfxGpuCommandAdapter() : gpuCommandAdapter;
         this.retireStage = VulkanVfxRetireStage.create(device, layout);
         this.emitStage = VulkanVfxEmitStage.create(device, layout);
@@ -90,9 +93,9 @@ public final class VulkanVfxService implements VfxService {
         this.cullCompactStage = VulkanVfxCullCompactStage.create(device, layout);
         this.spawnScheduler = new VulkanVfxSpawnScheduler();
         this.debrisCandidateWriter = VulkanVfxDebrisCandidateWriter.create(device, layout);
-        this.readbackRing = memoryOps == null
+        this.readbackRing = bufferOps == null
             ? VulkanVfxDebrisReadbackRing.allocateForTest(VulkanVfxDebrisReadbackBuffer.DEFAULT_MAX_CANDIDATES)
-            : VulkanVfxDebrisReadbackRing.allocate(memoryOps, VulkanVfxDebrisReadbackBuffer.DEFAULT_MAX_CANDIDATES);
+            : VulkanVfxDebrisReadbackRing.allocate(bufferOps, VulkanVfxDebrisReadbackBuffer.DEFAULT_MAX_CANDIDATES);
         this.framesInFlight = 3;
         this.hotReloader = VulkanVfxHotReloader.create(device, 1L, layout, framesInFlight);
         this.budgetAllocator = new VfxBudgetAllocator(
@@ -132,8 +135,8 @@ public final class VulkanVfxService implements VfxService {
             emitStage.dispatch(commandBuffer, resources, sets, set0, frameIndex, spawnCount, state.seed, handle.id());
             VulkanVfxEmitStage.insertPostEmitBarrier(commandBuffer);
 
-            if (memoryOps != null) {
-                simulateStage.dispatch(commandBuffer, resources, sets, set0, frameIndex, state.descriptor.forces(), memoryOps);
+            if (bufferOps != null) {
+                simulateStage.dispatch(commandBuffer, resources, sets, set0, frameIndex, state.descriptor.forces(), bufferOps);
             }
             VulkanVfxSimulateStage.insertPostSimulateBarrier(commandBuffer);
 
@@ -211,7 +214,7 @@ public final class VulkanVfxService implements VfxService {
         EffectState state = effects.remove(handle.id());
         generationById.put(handle.id(), handle.generation() + 1);
         if (state != null && state.resources != null) {
-            state.resources.destroy(memoryOps);
+            state.resources.destroy(bufferOps, imageOps);
         }
         if (state != null) {
             budgetAllocator.release(state.allocationId);
@@ -277,7 +280,7 @@ public final class VulkanVfxService implements VfxService {
     public void destroy() {
         for (EffectState state : effects.values()) {
             if (state.resources != null) {
-                state.resources.destroy(memoryOps);
+                state.resources.destroy(bufferOps, imageOps);
             }
             if (state.descriptorSets != null) {
                 state.descriptorSets.destroy(device);
@@ -290,7 +293,7 @@ public final class VulkanVfxService implements VfxService {
         sortStage.destroy(device);
         cullCompactStage.destroy(device);
         debrisCandidateWriter.destroy(device);
-        readbackRing.destroy(memoryOps);
+        readbackRing.destroy(bufferOps);
         hotReloader.destroy();
         physicsHandoff = null;
     }
@@ -313,14 +316,14 @@ public final class VulkanVfxService implements VfxService {
         }
 
         VfxReloadCategory category = VfxDescriptorDiff.classify(state.descriptor, updated);
-        if (state.resources != null && state.descriptorSets != null && memoryOps != null) {
+        if (state.resources != null && state.descriptorSets != null && bufferOps != null) {
             category = hotReloader.reload(
                 handle,
                 updated,
                 state.resources,
                 state.descriptorSets,
                 simulateStage,
-                memoryOps,
+                bufferOps,
                 1L,
                 0L
             );
@@ -355,7 +358,7 @@ public final class VulkanVfxService implements VfxService {
 
     void processDebrisReadback(long frameIndex) {
         VulkanVfxDebrisReadbackBuffer readBuffer = readbackRing.readBuffer(frameIndex);
-        List<VulkanVfxDebrisCandidate> candidates = readBuffer.readCandidates(memoryOps);
+        List<VulkanVfxDebrisCandidate> candidates = readBuffer.readCandidates(bufferOps);
         if (physicsHandoff == null) {
             return;
         }

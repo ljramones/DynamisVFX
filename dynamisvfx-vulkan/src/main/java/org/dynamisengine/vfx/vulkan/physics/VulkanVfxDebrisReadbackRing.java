@@ -1,6 +1,6 @@
 package org.dynamisengine.vfx.vulkan.physics;
 
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanBufferOps;
 
 import java.util.Objects;
 
@@ -13,7 +13,7 @@ public final class VulkanVfxDebrisReadbackRing {
     }
 
     public static VulkanVfxDebrisReadbackRing allocate(
-        VulkanMemoryOps memoryOps,
+        VulkanBufferOps memoryOps,
         int maxCandidatesPerFrame
     ) {
         Objects.requireNonNull(memoryOps, "memoryOps");
@@ -40,7 +40,7 @@ public final class VulkanVfxDebrisReadbackRing {
         return ring[Math.floorMod((int) (frameIndex - 2), RING_SIZE)];
     }
 
-    public void destroy(VulkanMemoryOps memoryOps) {
+    public void destroy(VulkanBufferOps memoryOps) {
         for (VulkanVfxDebrisReadbackBuffer buffer : ring) {
             buffer.destroy(memoryOps);
         }

@@ -2,7 +2,8 @@ package org.dynamisengine.vfx.vulkan.resources;
 
 import org.dynamisengine.gpu.api.error.GpuException;
 import org.dynamisengine.gpu.api.gpu.IndirectCommandBuffer;
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanBufferOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanImageOps;
 import org.dynamisengine.vfx.api.ForceDescriptor;
 import org.dynamisengine.vfx.api.ForceType;
 import org.dynamisengine.vfx.api.NoiseForceConfig;
@@ -48,44 +49,48 @@ public final class VulkanVfxEffectResources {
     public static VulkanVfxEffectResources allocate(
         VfxHandle handle,
         ParticleEmitterDescriptor descriptor,
-        VulkanMemoryOps memoryOps,
+        VulkanBufferOps bufferOps,
+        VulkanImageOps imageOps,
         IndirectCommandBuffer indirectBuffer
     ) throws GpuException {
         Objects.requireNonNull(handle, "handle");
         Objects.requireNonNull(descriptor, "descriptor");
-        Objects.requireNonNull(memoryOps, "memoryOps");
+        Objects.requireNonNull(bufferOps, "bufferOps");
+        Objects.requireNonNull(imageOps, "imageOps");
         Objects.requireNonNull(indirectBuffer, "indirectBuffer");
 
         VfxBufferConfig config = VfxBufferConfig.of(descriptor);
 
-        VulkanVfxSoaBuffers soa = VulkanVfxSoaBuffers.allocate(config, memoryOps);
-        VulkanVfxControlBuffers control = VulkanVfxControlBuffers.allocate(config, memoryOps);
-        VulkanVfxRenderBuffers render = VulkanVfxRenderBuffers.allocate(config, memoryOps, indirectBuffer);
+        VulkanVfxSoaBuffers soa = VulkanVfxSoaBuffers.allocate(config, bufferOps);
+        VulkanVfxControlBuffers control = VulkanVfxControlBuffers.allocate(config, bufferOps);
+        VulkanVfxRenderBuffers render = VulkanVfxRenderBuffers.allocate(config, bufferOps, indirectBuffer);
 
         VulkanVfxEffectResources resources = new VulkanVfxEffectResources(config, descriptor, soa, control, render, handle);
         NoiseForceConfig noiseConfig = findCurlNoiseConfig(descriptor);
         if (noiseConfig != null) {
             resources.noiseFieldConfig = VulkanVfxNoiseFieldConfig.from(noiseConfig);
-            resources.noiseField = VulkanVfxNoiseField3D.allocate(1L, memoryOps, resources.noiseFieldConfig);
+            resources.noiseField = VulkanVfxNoiseField3D.allocate(1L, imageOps, resources.noiseFieldConfig);
         }
         return resources;
     }
 
-    public void destroy(VulkanMemoryOps memoryOps) {
-        Objects.requireNonNull(memoryOps, "memoryOps");
+    public void destroy(VulkanBufferOps bufferOps, VulkanImageOps imageOps) {
+        Objects.requireNonNull(bufferOps, "bufferOps");
+        Objects.requireNonNull(imageOps, "imageOps");
         if (noiseField != null) {
-            noiseField.destroy(1L, memoryOps);
+            noiseField.destroy(1L, imageOps);
             noiseField = null;
         }
-        renderBuffers.destroy(memoryOps);
-        controlBuffers.destroy(memoryOps);
-        soaBuffers.destroy(memoryOps);
+        renderBuffers.destroy(bufferOps);
+        controlBuffers.destroy(bufferOps);
+        soaBuffers.destroy(bufferOps);
         freeListInitData = null;
         aliveCountInitData = null;
     }
 
-    public void initializeGpuState(VulkanMemoryOps memoryOps, long commandBuffer) {
-        Objects.requireNonNull(memoryOps, "memoryOps");
+    public void initializeGpuState(VulkanBufferOps bufferOps, VulkanImageOps imageOps, long commandBuffer) {
+        Objects.requireNonNull(bufferOps, "bufferOps");
+        Objects.requireNonNull(imageOps, "imageOps");
 
         freeListInitData = ByteBuffer.allocateDirect(config.maxParticles() * Integer.BYTES)
             .order(ByteOrder.nativeOrder());
@@ -99,7 +104,7 @@ public final class VulkanVfxEffectResources {
             .putInt(0);
         aliveCountInitData.flip();
 
-        // Placeholder: upload freeListInitData and aliveCountInitData via VulkanMemoryOps
+        // Placeholder: upload freeListInitData and aliveCountInitData via VulkanBufferOps
         // once VkDevice/VkQueue/context plumbing is wired.
         long ignored = commandBuffer;
         if (ignored == Long.MIN_VALUE) {
@@ -107,7 +112,7 @@ public final class VulkanVfxEffectResources {
         }
 
         if (noiseField != null && noiseFieldConfig != null) {
-            VulkanVfxNoiseFieldUploader.bakeAndUpload(commandBuffer, noiseField, noiseFieldConfig, memoryOps);
+            VulkanVfxNoiseFieldUploader.bakeAndUpload(commandBuffer, noiseField, noiseFieldConfig, imageOps);
         }
     }
 

@@ -182,7 +182,7 @@ public final class VulkanVfxMockRuntime {
 
     static ReloadFixture createReloadFixture(ParticleEmitterDescriptor descriptor) {
         VulkanVfxDescriptorSetLayout layout = VulkanVfxDescriptorSetLayout.create(1L);
-        VulkanVfxService service = new VulkanVfxService(1L, null, layout);
+        VulkanVfxService service = new VulkanVfxService(1L, null, null, layout);
         VfxHandle handle = service.spawn(descriptor, identityMatrix());
         return new ReloadFixture(service, handle, descriptor, layout);
     }

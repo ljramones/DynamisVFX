@@ -1,7 +1,7 @@
 package org.dynamisengine.vfx.vulkan.physics;
 
 import org.dynamisengine.gpu.vulkan.memory.VulkanBufferAlloc;
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanBufferOps;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -23,7 +23,7 @@ public final class VulkanVfxDebrisReadbackBuffer {
         this.hostMirror = hostMirror;
     }
 
-    public static VulkanVfxDebrisReadbackBuffer allocate(VulkanMemoryOps memoryOps, int maxCandidates) {
+    public static VulkanVfxDebrisReadbackBuffer allocate(VulkanBufferOps memoryOps, int maxCandidates) {
         Objects.requireNonNull(memoryOps, "memoryOps");
         return allocateInternal(maxCandidates);
     }
@@ -43,7 +43,7 @@ public final class VulkanVfxDebrisReadbackBuffer {
         return new VulkanVfxDebrisReadbackBuffer(new VulkanBufferAlloc(0L, 0L), maxCandidates, mirror);
     }
 
-    public List<VulkanVfxDebrisCandidate> readCandidates(VulkanMemoryOps memoryOps) {
+    public List<VulkanVfxDebrisCandidate> readCandidates(VulkanBufferOps memoryOps) {
         Objects.requireNonNull(memoryOps, "memoryOps");
         return readCandidates();
     }
@@ -77,7 +77,7 @@ public final class VulkanVfxDebrisReadbackBuffer {
         }
     }
 
-    public void destroy(VulkanMemoryOps memoryOps) {
+    public void destroy(VulkanBufferOps memoryOps) {
         if (memoryOps != null) {
             memoryOps.getClass();
         }

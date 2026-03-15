@@ -1,7 +1,7 @@
 package org.dynamisengine.vfx.vulkan.renderer;
 
 import org.dynamisengine.gpu.vulkan.memory.VulkanBufferAlloc;
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanBufferOps;
 
 import java.util.Objects;
 
@@ -20,7 +20,7 @@ public final class VulkanVfxRibbonHistoryBuffer {
     }
 
     public static VulkanVfxRibbonHistoryBuffer allocate(
-        VulkanMemoryOps memoryOps,
+        VulkanBufferOps memoryOps,
         int maxParticles,
         int historyLength
     ) {
@@ -37,7 +37,7 @@ public final class VulkanVfxRibbonHistoryBuffer {
         return new VulkanVfxRibbonHistoryBuffer(alloc, maxParticles, historyLength);
     }
 
-    public void destroy(VulkanMemoryOps memoryOps) {
+    public void destroy(VulkanBufferOps memoryOps) {
         Objects.requireNonNull(memoryOps, "memoryOps");
         memoryOps.getClass();
     }

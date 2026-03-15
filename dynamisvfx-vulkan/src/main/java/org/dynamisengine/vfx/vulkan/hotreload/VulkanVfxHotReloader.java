@@ -1,6 +1,6 @@
 package org.dynamisengine.vfx.vulkan.hotreload;
 
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanBufferOps;
 import org.dynamisengine.vfx.api.ParticleEmitterDescriptor;
 import org.dynamisengine.vfx.api.VfxHandle;
 import org.dynamisengine.vfx.core.validate.EffectValidator;
@@ -42,7 +42,7 @@ public final class VulkanVfxHotReloader {
         VulkanVfxEffectResources resources,
         VulkanVfxDescriptorSets descriptorSets,
         VulkanVfxSimulateStage simulateStage,
-        VulkanMemoryOps memoryOps,
+        VulkanBufferOps memoryOps,
         long commandBuffer,
         long frameIndex
     ) {

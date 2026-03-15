@@ -1,7 +1,7 @@
 package org.dynamisengine.vfx.vulkan.renderer;
 
 import org.dynamisengine.gpu.vulkan.memory.VulkanBufferAlloc;
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanBufferOps;
 
 import java.util.Objects;
 
@@ -16,7 +16,7 @@ public final class VulkanVfxDecalInstanceBuffer {
         this.maxParticles = maxParticles;
     }
 
-    public static VulkanVfxDecalInstanceBuffer allocate(VulkanMemoryOps memoryOps, int maxParticles) {
+    public static VulkanVfxDecalInstanceBuffer allocate(VulkanBufferOps memoryOps, int maxParticles) {
         Objects.requireNonNull(memoryOps, "memoryOps");
         if (maxParticles <= 0) {
             throw new IllegalArgumentException("maxParticles must be > 0");
@@ -26,7 +26,7 @@ public final class VulkanVfxDecalInstanceBuffer {
         return new VulkanVfxDecalInstanceBuffer(new VulkanBufferAlloc(0L, 0L), maxParticles);
     }
 
-    public void destroy(VulkanMemoryOps memoryOps) {
+    public void destroy(VulkanBufferOps memoryOps) {
         Objects.requireNonNull(memoryOps, "memoryOps");
         memoryOps.getClass();
     }

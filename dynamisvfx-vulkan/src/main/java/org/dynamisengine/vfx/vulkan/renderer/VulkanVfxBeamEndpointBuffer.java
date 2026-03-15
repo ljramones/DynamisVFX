@@ -1,7 +1,7 @@
 package org.dynamisengine.vfx.vulkan.renderer;
 
 import org.dynamisengine.gpu.vulkan.memory.VulkanBufferAlloc;
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanBufferOps;
 
 import java.util.Objects;
 
@@ -20,7 +20,7 @@ public final class VulkanVfxBeamEndpointBuffer {
         this.maxBeams = maxBeams;
     }
 
-    public static VulkanVfxBeamEndpointBuffer allocate(VulkanMemoryOps memoryOps, int maxBeams) {
+    public static VulkanVfxBeamEndpointBuffer allocate(VulkanBufferOps memoryOps, int maxBeams) {
         Objects.requireNonNull(memoryOps, "memoryOps");
         if (maxBeams <= 0) {
             throw new IllegalArgumentException("maxBeams must be > 0");
@@ -29,7 +29,7 @@ public final class VulkanVfxBeamEndpointBuffer {
         return new VulkanVfxBeamEndpointBuffer(new VulkanBufferAlloc(0L, 0L), maxBeams);
     }
 
-    public void upload(long commandBuffer, float[] endpointData, int beamCount, VulkanMemoryOps memoryOps) {
+    public void upload(long commandBuffer, float[] endpointData, int beamCount, VulkanBufferOps memoryOps) {
         if (commandBuffer == 0L) {
             throw new IllegalArgumentException("commandBuffer must be non-zero");
         }
@@ -50,7 +50,7 @@ public final class VulkanVfxBeamEndpointBuffer {
         lastBeamCount = beamCount;
     }
 
-    public void destroy(VulkanMemoryOps memoryOps) {
+    public void destroy(VulkanBufferOps memoryOps) {
         Objects.requireNonNull(memoryOps, "memoryOps");
         memoryOps.getClass();
         lastUploadedData = new float[0];

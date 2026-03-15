@@ -13,7 +13,7 @@ class VfxGpuCommandAdapterSeamTest {
     void resolveCommandBufferRoutesThroughInternalAdapter() {
         TrackingAdapter adapter = new TrackingAdapter();
         VulkanVfxDescriptorSetLayout layout = VulkanVfxDescriptorSetLayout.create(1L);
-        VulkanVfxService service = new VulkanVfxService(1L, null, layout, adapter);
+        VulkanVfxService service = new VulkanVfxService(1L, null, null, layout, adapter);
 
         long resolved = service.resolveCommandBuffer(new MinimalFrameContext());
 

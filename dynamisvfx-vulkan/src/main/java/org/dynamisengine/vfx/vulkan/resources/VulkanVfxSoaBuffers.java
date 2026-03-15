@@ -1,7 +1,7 @@
 package org.dynamisengine.vfx.vulkan.resources;
 
 import org.dynamisengine.gpu.vulkan.memory.VulkanBufferAlloc;
-import org.dynamisengine.gpu.vulkan.memory.VulkanMemoryOps;
+import org.dynamisengine.gpu.vulkan.memory.VulkanBufferOps;
 import org.lwjgl.vulkan.VK10;
 
 import java.util.Objects;
@@ -36,7 +36,7 @@ public final class VulkanVfxSoaBuffers {
         this.usageFlags = usageFlags;
     }
 
-    public static VulkanVfxSoaBuffers allocate(VfxBufferConfig config, VulkanMemoryOps memoryOps) {
+    public static VulkanVfxSoaBuffers allocate(VfxBufferConfig config, VulkanBufferOps memoryOps) {
         Objects.requireNonNull(config, "config");
         Objects.requireNonNull(memoryOps, "memoryOps");
 
@@ -54,7 +54,7 @@ public final class VulkanVfxSoaBuffers {
         );
     }
 
-    public void destroy(VulkanMemoryOps memoryOps) {
+    public void destroy(VulkanBufferOps memoryOps) {
         Objects.requireNonNull(memoryOps, "memoryOps");
         // Placeholder for explicit vkDestroyBuffer/vkFreeMemory once Vulkan device context is wired.
     }
@@ -91,7 +91,7 @@ public final class VulkanVfxSoaBuffers {
         return usageFlags;
     }
 
-    private static VulkanBufferAlloc allocateStorageBuffer(VulkanMemoryOps memoryOps, int sizeBytes, int usageFlags) {
+    private static VulkanBufferAlloc allocateStorageBuffer(VulkanBufferOps memoryOps, int sizeBytes, int usageFlags) {
         memoryOps.getClass();
         return new VulkanBufferAlloc(0L, 0L);
     }
