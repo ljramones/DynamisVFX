@@ -1,3 +1,3 @@
-module org.dynamisvfx.api {
-    exports org.dynamisvfx.api;
+module org.dynamisengine.vfx.api {
+    exports org.dynamisengine.vfx.api;
 }

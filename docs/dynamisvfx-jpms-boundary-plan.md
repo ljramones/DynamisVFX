@@ -9,7 +9,7 @@ Goal: define the minimal stable public surface before any `module-info.java` imp
 ## Grounded Current State
 
 - Repository is multi-module (`dynamisvfx-api`, `dynamisvfx-core`, `dynamisvfx-vulkan`, `dynamisvfx-test`, `dynamisvfx-bench`) and currently has no JPMS descriptors.
-- `DynamisLightEngine` currently imports both VFX API and Vulkan implementation classes (for example `org.dynamisvfx.vulkan.VulkanVfxService`, `org.dynamisvfx.vulkan.descriptor.VulkanVfxDescriptorSetLayout`).
+- `DynamisLightEngine` currently imports both VFX API and Vulkan implementation classes (for example `org.dynamisengine.vfx.vulkan.VulkanVfxService`, `org.dynamisengine.vfx.vulkan.descriptor.VulkanVfxDescriptorSetLayout`).
 - Vulkan package space contains substantial backend details (`compute`, `descriptor`, `renderer`, `resources`, `internal.gpu`, `shader`, `hotreload`, etc.).
 
 Implication: we should first lock an explicit minimal public boundary model, then introduce JPMS in a compatibility-preserving sequence.
@@ -18,7 +18,7 @@ Implication: we should first lock an explicit minimal public boundary model, the
 
 ### Stable public feature API (intended external consumption)
 
-- `org.dynamisvfx.api`
+- `org.dynamisengine.vfx.api`
 
 This package currently carries feature-facing descriptors and service/runtime contracts (effect descriptors, frame/draw context contracts, service surface, physics handoff contracts).
 
@@ -26,19 +26,19 @@ This package currently carries feature-facing descriptors and service/runtime co
 
 The following package split is desirable long-term but is not implemented yet:
 
-- `org.dynamisvfx.api.effect`
-- `org.dynamisvfx.api.runtime`
-- optional `org.dynamisvfx.api.spi` (only if real cross-repo SPI use appears)
+- `org.dynamisengine.vfx.api.effect`
+- `org.dynamisengine.vfx.api.runtime`
+- optional `org.dynamisengine.vfx.api.spi` (only if real cross-repo SPI use appears)
 
-For now, the safe boundary is to treat `org.dynamisvfx.api` as the only stable public package.
+For now, the safe boundary is to treat `org.dynamisengine.vfx.api` as the only stable public package.
 
 ## 2) Intended Internal / Backend-only Packages
 
 These are implementation/internal and should not be exported as stable public JPMS surface:
 
-- `org.dynamisvfx.core.*`
-- `org.dynamisvfx.vulkan.*`
-- `org.dynamisvfx.vulkan.internal.*`
+- `org.dynamisengine.vfx.core.*`
+- `org.dynamisengine.vfx.vulkan.*`
+- `org.dynamisengine.vfx.vulkan.internal.*`
 - backend-support packages under Vulkan module (`compute`, `descriptor`, `renderer`, `resources`, `shader`, `hotreload`, `physics`, `noise`, `indirect`, `budget`, etc.)
 
 Policy intent:
@@ -56,10 +56,10 @@ Introduce JPMS in two safe stages.
 Add descriptor only for `dynamisvfx-api` first:
 
 ```java
-module org.dynamisvfx.api {
+module org.dynamisengine.vfx.api {
     requires dynamis.gpu.api;
 
-    exports org.dynamisvfx.api;
+    exports org.dynamisengine.vfx.api;
 }
 ```
 
@@ -76,26 +76,26 @@ Add descriptors for `core` and `vulkan` with minimal exports.
 Candidate shape:
 
 ```java
-module org.dynamisvfx.core {
-    requires org.dynamisvfx.api;
+module org.dynamisengine.vfx.core {
+    requires org.dynamisengine.vfx.api;
     requires org.vectrix;
     requires com.cognitivedynamics.fastnoiselitenouveau;
     requires com.fasterxml.jackson.databind;
 
-    exports org.dynamisvfx.core;
+    exports org.dynamisengine.vfx.core;
 }
 ```
 
 ```java
-module org.dynamisvfx.vulkan {
-    requires org.dynamisvfx.api;
-    requires org.dynamisvfx.core;
+module org.dynamisengine.vfx.vulkan {
+    requires org.dynamisengine.vfx.api;
+    requires org.dynamisengine.vfx.core;
     requires dynamis.gpu.api;
     requires dynamis.gpu.vulkan;
     requires org.lwjgl;
     requires org.lwjgl.vulkan;
 
-    exports org.dynamisvfx.vulkan;
+    exports org.dynamisengine.vfx.vulkan;
 }
 ```
 
@@ -120,7 +120,7 @@ Reason: these seams are still being tightened incrementally; early hard-locking 
 
 Smallest stable public VFX surface today:
 
-- `org.dynamisvfx.api` only
+- `org.dynamisengine.vfx.api` only
 
 Everything else should be treated as internal/backend implementation until VFX integration cleanup reaches parity with Terrain/Sky seam maturity.
 

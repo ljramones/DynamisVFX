@@ -1,12 +1,12 @@
-module org.dynamisvfx.core {
-    requires org.dynamisvfx.api;
-    requires org.vectrix;
+module org.dynamisengine.vfx.core {
+    requires org.dynamisengine.vfx.api;
+    requires org.dynamisengine.vectrix;
     requires fastnoiselitenouveau;
     requires com.fasterxml.jackson.databind;
 
-    exports org.dynamisvfx.core;
-    exports org.dynamisvfx.core.builder;
-    exports org.dynamisvfx.core.noise;
-    exports org.dynamisvfx.core.serial;
-    exports org.dynamisvfx.core.validate;
+    exports org.dynamisengine.vfx.core;
+    exports org.dynamisengine.vfx.core.builder;
+    exports org.dynamisengine.vfx.core.noise;
+    exports org.dynamisengine.vfx.core.serial;
+    exports org.dynamisengine.vfx.core.validate;
 }

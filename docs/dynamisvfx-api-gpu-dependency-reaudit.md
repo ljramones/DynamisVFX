@@ -45,4 +45,4 @@ Recommendation: **Stage E2 can proceed**.
 
 Constraint for Stage E2:
 
-- keep VFX API typed-first and avoid reintroducing GPU execution types into `org.dynamisvfx.api`.
+- keep VFX API typed-first and avoid reintroducing GPU execution types into `org.dynamisengine.vfx.api`.

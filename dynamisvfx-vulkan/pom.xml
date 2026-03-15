@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.dynamisvfx</groupId>
+        <groupId>org.dynamisengine.vfx</groupId>
         <artifactId>dynamisvfx-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
     </parent>
@@ -15,22 +15,22 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.dynamisvfx</groupId>
+            <groupId>org.dynamisengine.vfx</groupId>
             <artifactId>dynamisvfx-api</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.dynamisvfx</groupId>
+            <groupId>org.dynamisengine.vfx</groupId>
             <artifactId>dynamisvfx-core</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.dynamisgpu</groupId>
+            <groupId>org.dynamisengine</groupId>
             <artifactId>dynamis-gpu-api</artifactId>
             <version>1.0.1</version>
         </dependency>
         <dependency>
-            <groupId>org.dynamisgpu</groupId>
+            <groupId>org.dynamisengine</groupId>
             <artifactId>dynamis-gpu-vulkan</artifactId>
             <version>1.0.1</version>
         </dependency>
@@ -55,7 +55,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>--add-opens org.dynamisvfx.vulkan/org.dynamisvfx.vulkan=ALL-UNNAMED --add-opens org.dynamisvfx.vulkan/org.dynamisvfx.vulkan.parity=ALL-UNNAMED</argLine>
+                    <argLine>--add-opens org.dynamisengine.vfx.vulkan/org.dynamisengine.vfx.vulkan=ALL-UNNAMED --add-opens org.dynamisengine.vfx.vulkan/org.dynamisengine.vfx.vulkan.parity=ALL-UNNAMED</argLine>
                 </configuration>
             </plugin>
         </plugins>

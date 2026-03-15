@@ -11,18 +11,18 @@ This is review-only (no implementation changes).
 `dynamisvfx-api` currently declares:
 
 ```java
-module org.dynamisvfx.api {
+module org.dynamisengine.vfx.api {
     requires dynamis.gpu.api;
 
-    exports org.dynamisvfx.api;
+    exports org.dynamisengine.vfx.api;
 }
 ```
 
 ## Exact Public Types Causing the Dependency
 
-Direct references to `org.dynamisgpu.api` in `org.dynamisvfx.api` are limited to:
+Direct references to `org.dynamisgpu.api` in `org.dynamisengine.vfx.api` are limited to:
 
-- `org.dynamisvfx.api.VfxDrawContext`
+- `org.dynamisengine.vfx.api.VfxDrawContext`
   - `IndirectCommandBuffer indirectBuffer();`
   - `DescriptorWriter bindlessHeap();`
 
@@ -58,7 +58,7 @@ Rationale:
 
 Constraints:
 
-- No expansion of `org.dynamisgpu.api` type usage in `org.dynamisvfx.api`.
+- No expansion of `org.dynamisgpu.api` type usage in `org.dynamisengine.vfx.api`.
 - New/updated API contracts should prefer feature-owned typed wrappers/contracts over additional GPU API exposure.
 - `VfxDrawContext` should be treated as an integration bridge, not the long-term shape for feature-facing portability.
 
