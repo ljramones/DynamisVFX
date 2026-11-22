@@ -1,8 +1,8 @@
 module org.dynamisengine.vfx.vulkan {
     requires org.dynamisengine.vfx.api;
     requires org.dynamisengine.vfx.core;
-    requires dynamis.gpu.api;
-    requires dynamis.gpu.vulkan;
+    requires org.dynamisengine.gpu.api;
+    requires org.dynamisengine.gpu.vulkan;
     requires org.lwjgl.vulkan;
     requires java.logging;
 

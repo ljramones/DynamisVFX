@@ -27,7 +27,7 @@
         <dependency>
             <groupId>com.cognitivedynamics</groupId>
             <artifactId>fastnoiselitenouveau</artifactId>
-            <version>1.1.1</version>
+            <version>1.2.0</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

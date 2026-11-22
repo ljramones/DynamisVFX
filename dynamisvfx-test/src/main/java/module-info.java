@@ -1,7 +1,7 @@
 module org.dynamisengine.vfx.test {
     requires org.dynamisengine.vfx.api;
     requires org.dynamisengine.vfx.core;
-    requires dynamis.gpu.test;
+    requires org.dynamisengine.gpu.test;
 
     exports org.dynamisengine.vfx.test.assertions;
     exports org.dynamisengine.vfx.test.harness;
